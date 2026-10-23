@@ -1,0 +1,1009 @@
+{
+  "schemaVersion": 1,
+  "id": "fictional-dense-landscape",
+  "title": "Explore a larger system",
+  "subtitle": "A deliberately dense, fictional navigation exercise",
+  "revision": 0,
+  "entities": [
+    {
+      "id": "web",
+      "kind": "service",
+      "name": "Web storefront",
+      "summary": "Part of the fictional access and experience boundary.",
+      "group": "access",
+      "description": "Web storefront is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "mobile",
+      "kind": "service",
+      "name": "Mobile storefront",
+      "summary": "Part of the fictional access and experience boundary.",
+      "group": "access",
+      "description": "Mobile storefront is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "support",
+      "kind": "actor",
+      "name": "Support operator",
+      "summary": "Part of the fictional access and experience boundary.",
+      "group": "access",
+      "description": "Support operator is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "edge",
+      "kind": "service",
+      "name": "API edge",
+      "summary": "Part of the fictional access and experience boundary.",
+      "group": "access",
+      "description": "API edge is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "identity",
+      "kind": "external",
+      "name": "Identity provider",
+      "summary": "Part of the fictional access and experience boundary.",
+      "group": "access",
+      "description": "Identity provider is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "checkout",
+      "kind": "service",
+      "name": "Checkout API",
+      "summary": "Part of the fictional ordering boundary.",
+      "group": "ordering",
+      "description": "Checkout API is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "basket",
+      "kind": "service",
+      "name": "Basket service",
+      "summary": "Part of the fictional ordering boundary.",
+      "group": "ordering",
+      "description": "Basket service is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "pricing",
+      "kind": "service",
+      "name": "Pricing service",
+      "summary": "Part of the fictional ordering boundary.",
+      "group": "ordering",
+      "description": "Pricing service is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "orders-store",
+      "kind": "database",
+      "name": "Order store",
+      "summary": "Part of the fictional ordering boundary.",
+      "group": "ordering",
+      "description": "Order store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "order-outbox",
+      "kind": "queue",
+      "name": "Order outbox",
+      "summary": "Part of the fictional ordering boundary.",
+      "group": "ordering",
+      "description": "Order outbox is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "catalog",
+      "kind": "service",
+      "name": "Catalog API",
+      "summary": "Part of the fictional stock and catalog boundary.",
+      "group": "stock",
+      "description": "Catalog API is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "catalog-store",
+      "kind": "database",
+      "name": "Catalog store",
+      "summary": "Part of the fictional stock and catalog boundary.",
+      "group": "stock",
+      "description": "Catalog store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "stock-api",
+      "kind": "service",
+      "name": "Stock API",
+      "summary": "Part of the fictional stock and catalog boundary.",
+      "group": "stock",
+      "description": "Stock API is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "stock-store",
+      "kind": "database",
+      "name": "Stock ledger",
+      "summary": "Part of the fictional stock and catalog boundary.",
+      "group": "stock",
+      "description": "Stock ledger is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "stock-worker",
+      "kind": "service",
+      "name": "Reservation expiry worker",
+      "summary": "Part of the fictional stock and catalog boundary.",
+      "group": "stock",
+      "description": "Reservation expiry worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "payment-api",
+      "kind": "service",
+      "name": "Payment adapter",
+      "summary": "Part of the fictional payments and finance boundary.",
+      "group": "money",
+      "description": "Payment adapter is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "payment-vendor",
+      "kind": "external",
+      "name": "Payment provider",
+      "summary": "Part of the fictional payments and finance boundary.",
+      "group": "money",
+      "description": "Payment provider is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "payment-store",
+      "kind": "database",
+      "name": "Payment ledger",
+      "summary": "Part of the fictional payments and finance boundary.",
+      "group": "money",
+      "description": "Payment ledger is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "reconcile",
+      "kind": "service",
+      "name": "Reconciliation worker",
+      "summary": "Part of the fictional payments and finance boundary.",
+      "group": "money",
+      "description": "Reconciliation worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "finance-export",
+      "kind": "service",
+      "name": "Finance exporter",
+      "summary": "Part of the fictional payments and finance boundary.",
+      "group": "money",
+      "description": "Finance exporter is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "fulfillment-api",
+      "kind": "service",
+      "name": "Fulfillment API",
+      "summary": "Part of the fictional fulfillment and delivery boundary.",
+      "group": "delivery",
+      "description": "Fulfillment API is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "packing",
+      "kind": "service",
+      "name": "Packing worker",
+      "summary": "Part of the fictional fulfillment and delivery boundary.",
+      "group": "delivery",
+      "description": "Packing worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "warehouse",
+      "kind": "external",
+      "name": "Warehouse system",
+      "summary": "Part of the fictional fulfillment and delivery boundary.",
+      "group": "delivery",
+      "description": "Warehouse system is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "carrier",
+      "kind": "external",
+      "name": "Carrier gateway",
+      "summary": "Part of the fictional fulfillment and delivery boundary.",
+      "group": "delivery",
+      "description": "Carrier gateway is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "delivery-store",
+      "kind": "database",
+      "name": "Delivery store",
+      "summary": "Part of the fictional fulfillment and delivery boundary.",
+      "group": "delivery",
+      "description": "Delivery store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "notify",
+      "kind": "service",
+      "name": "Notification worker",
+      "summary": "Part of the fictional customer communication boundary.",
+      "group": "communication",
+      "description": "Notification worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "preferences",
+      "kind": "service",
+      "name": "Preference API",
+      "summary": "Part of the fictional customer communication boundary.",
+      "group": "communication",
+      "description": "Preference API is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "prefs-store",
+      "kind": "database",
+      "name": "Preference store",
+      "summary": "Part of the fictional customer communication boundary.",
+      "group": "communication",
+      "description": "Preference store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "mail",
+      "kind": "external",
+      "name": "Email provider",
+      "summary": "Part of the fictional customer communication boundary.",
+      "group": "communication",
+      "description": "Email provider is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "sms",
+      "kind": "external",
+      "name": "SMS provider",
+      "summary": "Part of the fictional customer communication boundary.",
+      "group": "communication",
+      "description": "SMS provider is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "broker",
+      "kind": "queue",
+      "name": "Domain event broker",
+      "summary": "Part of the fictional event transport boundary.",
+      "group": "events-group",
+      "description": "Domain event broker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "dead-letter",
+      "kind": "queue",
+      "name": "Dead-letter queue",
+      "summary": "Part of the fictional event transport boundary.",
+      "group": "events-group",
+      "description": "Dead-letter queue is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "retry",
+      "kind": "service",
+      "name": "Retry worker",
+      "summary": "Part of the fictional event transport boundary.",
+      "group": "events-group",
+      "description": "Retry worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "schema-registry",
+      "kind": "service",
+      "name": "Schema registry",
+      "summary": "Part of the fictional event transport boundary.",
+      "group": "events-group",
+      "description": "Schema registry is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "audit-store",
+      "kind": "database",
+      "name": "Event audit store",
+      "summary": "Part of the fictional event transport boundary.",
+      "group": "events-group",
+      "description": "Event audit store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "telemetry",
+      "kind": "service",
+      "name": "Telemetry collector",
+      "summary": "Part of the fictional operations and analytics boundary.",
+      "group": "insight",
+      "description": "Telemetry collector is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "metrics",
+      "kind": "database",
+      "name": "Metrics store",
+      "summary": "Part of the fictional operations and analytics boundary.",
+      "group": "insight",
+      "description": "Metrics store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "logs",
+      "kind": "database",
+      "name": "Log store",
+      "summary": "Part of the fictional operations and analytics boundary.",
+      "group": "insight",
+      "description": "Log store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "analytics",
+      "kind": "service",
+      "name": "Analytics worker",
+      "summary": "Part of the fictional operations and analytics boundary.",
+      "group": "insight",
+      "description": "Analytics worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "warehouse-store",
+      "kind": "database",
+      "name": "Analytics warehouse",
+      "summary": "Part of the fictional operations and analytics boundary.",
+      "group": "insight",
+      "description": "Analytics warehouse is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    }
+  ],
+  "relations": [
+    {
+      "id": "dense-edge-01",
+      "source": "web",
+      "target": "edge",
+      "label": "HTTPS",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-02",
+      "source": "mobile",
+      "target": "edge",
+      "label": "HTTPS",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-03",
+      "source": "support",
+      "target": "edge",
+      "label": "read-only lookup",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-04",
+      "source": "edge",
+      "target": "identity",
+      "label": "validates token",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-05",
+      "source": "edge",
+      "target": "checkout",
+      "label": "routes command",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-06",
+      "source": "checkout",
+      "target": "basket",
+      "label": "reads basket",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-07",
+      "source": "checkout",
+      "target": "pricing",
+      "label": "quotes",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-08",
+      "source": "checkout",
+      "target": "orders-store",
+      "label": "persists order",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-09",
+      "source": "checkout",
+      "target": "order-outbox",
+      "label": "records event",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-10",
+      "source": "catalog",
+      "target": "catalog-store",
+      "label": "reads products",
+      "kind": "reads",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-11",
+      "source": "stock-api",
+      "target": "stock-store",
+      "label": "reserves units",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-12",
+      "source": "stock-worker",
+      "target": "stock-store",
+      "label": "expires holds",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-13",
+      "source": "checkout",
+      "target": "stock-api",
+      "label": "reserves",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-14",
+      "source": "checkout",
+      "target": "catalog",
+      "label": "resolves SKU",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-15",
+      "source": "payment-api",
+      "target": "payment-vendor",
+      "label": "authorizes",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-16",
+      "source": "payment-api",
+      "target": "payment-store",
+      "label": "records outcome",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-17",
+      "source": "reconcile",
+      "target": "payment-vendor",
+      "label": "queries outcome",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-18",
+      "source": "reconcile",
+      "target": "payment-store",
+      "label": "updates ledger",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-19",
+      "source": "finance-export",
+      "target": "payment-store",
+      "label": "reads ledger",
+      "kind": "reads",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-20",
+      "source": "checkout",
+      "target": "payment-api",
+      "label": "requests authorization",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-21",
+      "source": "fulfillment-api",
+      "target": "delivery-store",
+      "label": "stores plan",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-22",
+      "source": "packing",
+      "target": "warehouse",
+      "label": "requests packing",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-23",
+      "source": "packing",
+      "target": "carrier",
+      "label": "books shipment",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-24",
+      "source": "packing",
+      "target": "delivery-store",
+      "label": "records tracking",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-25",
+      "source": "fulfillment-api",
+      "target": "packing",
+      "label": "schedules work",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-26",
+      "source": "notify",
+      "target": "preferences",
+      "label": "checks consent",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-27",
+      "source": "preferences",
+      "target": "prefs-store",
+      "label": "reads settings",
+      "kind": "reads",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-28",
+      "source": "notify",
+      "target": "mail",
+      "label": "sends email",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-29",
+      "source": "notify",
+      "target": "sms",
+      "label": "sends SMS",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-30",
+      "source": "order-outbox",
+      "target": "broker",
+      "label": "relays event",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-31",
+      "source": "broker",
+      "target": "fulfillment-api",
+      "label": "delivers accepted order",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-32",
+      "source": "broker",
+      "target": "notify",
+      "label": "delivers status change",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-33",
+      "source": "broker",
+      "target": "dead-letter",
+      "label": "exhausted retries",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-34",
+      "source": "retry",
+      "target": "dead-letter",
+      "label": "reads failed event",
+      "kind": "reads",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-35",
+      "source": "retry",
+      "target": "broker",
+      "label": "replays inspected event",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-36",
+      "source": "broker",
+      "target": "schema-registry",
+      "label": "validates schema",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-37",
+      "source": "broker",
+      "target": "audit-store",
+      "label": "records event metadata",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-38",
+      "source": "telemetry",
+      "target": "metrics",
+      "label": "stores metrics",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-39",
+      "source": "telemetry",
+      "target": "logs",
+      "label": "stores logs",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-40",
+      "source": "broker",
+      "target": "analytics",
+      "label": "delivers events",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-41",
+      "source": "analytics",
+      "target": "warehouse-store",
+      "label": "writes aggregates",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-42",
+      "source": "edge",
+      "target": "telemetry",
+      "label": "emits traces",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-43",
+      "source": "checkout",
+      "target": "telemetry",
+      "label": "emits spans",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "dense-edge-44",
+      "source": "finance-export",
+      "target": "warehouse-store",
+      "label": "writes finance data",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "dense-overview",
+      "type": "system",
+      "title": "The complete fictional commerce landscape",
+      "description": "40 entities in eight groups. Fit gives orientation; zoom, search and focus reveal individual responsibilities. Use the focused views below for reading.",
+      "entityIds": [
+        "web",
+        "mobile",
+        "support",
+        "edge",
+        "identity",
+        "checkout",
+        "basket",
+        "pricing",
+        "orders-store",
+        "order-outbox",
+        "catalog",
+        "catalog-store",
+        "stock-api",
+        "stock-store",
+        "stock-worker",
+        "payment-api",
+        "payment-vendor",
+        "payment-store",
+        "reconcile",
+        "finance-export",
+        "fulfillment-api",
+        "packing",
+        "warehouse",
+        "carrier",
+        "delivery-store",
+        "notify",
+        "preferences",
+        "prefs-store",
+        "mail",
+        "sms",
+        "broker",
+        "dead-letter",
+        "retry",
+        "schema-registry",
+        "audit-store",
+        "telemetry",
+        "metrics",
+        "logs",
+        "analytics",
+        "warehouse-store"
+      ],
+      "relationIds": [
+        "dense-edge-01",
+        "dense-edge-02",
+        "dense-edge-03",
+        "dense-edge-04",
+        "dense-edge-05",
+        "dense-edge-06",
+        "dense-edge-07",
+        "dense-edge-08",
+        "dense-edge-09",
+        "dense-edge-10",
+        "dense-edge-11",
+        "dense-edge-12",
+        "dense-edge-13",
+        "dense-edge-14",
+        "dense-edge-15",
+        "dense-edge-16",
+        "dense-edge-17",
+        "dense-edge-18",
+        "dense-edge-19",
+        "dense-edge-20",
+        "dense-edge-21",
+        "dense-edge-22",
+        "dense-edge-23",
+        "dense-edge-24",
+        "dense-edge-25",
+        "dense-edge-26",
+        "dense-edge-27",
+        "dense-edge-28",
+        "dense-edge-29",
+        "dense-edge-30",
+        "dense-edge-31",
+        "dense-edge-32",
+        "dense-edge-33",
+        "dense-edge-34",
+        "dense-edge-35",
+        "dense-edge-36",
+        "dense-edge-37",
+        "dense-edge-38",
+        "dense-edge-39",
+        "dense-edge-40",
+        "dense-edge-41",
+        "dense-edge-42",
+        "dense-edge-43",
+        "dense-edge-44"
+      ],
+      "direction": "RIGHT",
+      "groups": [
+        {
+          "id": "access",
+          "label": "Access and experience"
+        },
+        {
+          "id": "ordering",
+          "label": "Ordering"
+        },
+        {
+          "id": "stock",
+          "label": "Stock and catalog"
+        },
+        {
+          "id": "money",
+          "label": "Payments and finance"
+        },
+        {
+          "id": "delivery",
+          "label": "Fulfillment and delivery"
+        },
+        {
+          "id": "communication",
+          "label": "Customer communication"
+        },
+        {
+          "id": "events-group",
+          "label": "Event transport"
+        },
+        {
+          "id": "insight",
+          "label": "Operations and analytics"
+        }
+      ]
+    },
+    {
+      "id": "dense-focus-1",
+      "type": "system",
+      "title": "Checkout boundaries",
+      "description": "A focused view reuses the same entities. Edits to a shared entity appear in every view.",
+      "entityIds": [
+        "web",
+        "mobile",
+        "support",
+        "edge",
+        "identity",
+        "checkout",
+        "basket",
+        "pricing",
+        "orders-store",
+        "order-outbox",
+        "catalog",
+        "catalog-store",
+        "stock-api",
+        "stock-store",
+        "stock-worker",
+        "payment-api",
+        "payment-vendor",
+        "payment-store",
+        "reconcile",
+        "finance-export"
+      ],
+      "relationIds": [
+        "dense-edge-01",
+        "dense-edge-02",
+        "dense-edge-03",
+        "dense-edge-04",
+        "dense-edge-05",
+        "dense-edge-06",
+        "dense-edge-07",
+        "dense-edge-08",
+        "dense-edge-09",
+        "dense-edge-10",
+        "dense-edge-11",
+        "dense-edge-12",
+        "dense-edge-13",
+        "dense-edge-14",
+        "dense-edge-15",
+        "dense-edge-16",
+        "dense-edge-17",
+        "dense-edge-18",
+        "dense-edge-19",
+        "dense-edge-20"
+      ],
+      "direction": "RIGHT",
+      "groups": [
+        {
+          "id": "access",
+          "label": "Access and experience"
+        },
+        {
+          "id": "ordering",
+          "label": "Ordering"
+        },
+        {
+          "id": "stock",
+          "label": "Stock and catalog"
+        },
+        {
+          "id": "money",
+          "label": "Payments and finance"
+        }
+      ]
+    },
+    {
+      "id": "dense-focus-2",
+      "type": "system",
+      "title": "After acceptance",
+      "description": "A focused view reuses the same entities. Edits to a shared entity appear in every view.",
+      "entityIds": [
+        "fulfillment-api",
+        "packing",
+        "warehouse",
+        "carrier",
+        "delivery-store",
+        "notify",
+        "preferences",
+        "prefs-store",
+        "mail",
+        "sms",
+        "broker",
+        "dead-letter",
+        "retry",
+        "schema-registry",
+        "audit-store",
+        "telemetry",
+        "metrics",
+        "logs",
+        "analytics",
+        "warehouse-store"
+      ],
+      "relationIds": [
+        "dense-edge-21",
+        "dense-edge-22",
+        "dense-edge-23",
+        "dense-edge-24",
+        "dense-edge-25",
+        "dense-edge-26",
+        "dense-edge-27",
+        "dense-edge-28",
+        "dense-edge-29",
+        "dense-edge-31",
+        "dense-edge-32",
+        "dense-edge-33",
+        "dense-edge-34",
+        "dense-edge-35",
+        "dense-edge-36",
+        "dense-edge-37",
+        "dense-edge-38",
+        "dense-edge-39",
+        "dense-edge-40",
+        "dense-edge-41"
+      ],
+      "direction": "RIGHT",
+      "groups": [
+        {
+          "id": "delivery",
+          "label": "Fulfillment and delivery"
+        },
+        {
+          "id": "communication",
+          "label": "Customer communication"
+        },
+        {
+          "id": "events-group",
+          "label": "Event transport"
+        },
+        {
+          "id": "insight",
+          "label": "Operations and analytics"
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "id": "dense-intro-title",
+      "type": "heading",
+      "level": 1,
+      "text": "A landscape big enough to explore"
+    },
+    {
+      "id": "dense-intro",
+      "type": "prose",
+      "markdown": "This fictional commerce landscape contains **40 entities and 44 selected relations**. It exercises search, focus, group layout and independent canvas navigation. It is not a recommended service decomposition.\n\nStart with the whole map to find a boundary, then read one of the focused views. A dense graph cannot make every label legible at a single fit scale; multiple views preserve shared meaning while lowering the reading load."
+    },
+    {
+      "id": "dense-all",
+      "type": "diagram",
+      "diagramId": "dense-overview"
+    },
+    {
+      "id": "dense-nav-note",
+      "type": "callout",
+      "title": "One model, three views",
+      "text": "Search for ?payment? and select Payment adapter. Inspect its details, then compare the checkout view below. Shared IDs keep the object consistent; each view keeps its own positions and zoom.",
+      "tone": "info"
+    },
+    {
+      "id": "dense-checkout-heading",
+      "type": "heading",
+      "level": 2,
+      "text": "Before acceptance"
+    },
+    {
+      "id": "dense-checkout-copy",
+      "type": "prose",
+      "markdown": "The checkout view keeps access, order handling, stock and payment responsibilities together. Edges are selected dependencies; their placement does not define the sequence of a request."
+    },
+    {
+      "id": "dense-checkout-embed",
+      "type": "diagram",
+      "diagramId": "dense-focus-1"
+    },
+    {
+      "id": "dense-background-heading",
+      "type": "heading",
+      "level": 2,
+      "text": "After acceptance"
+    },
+    {
+      "id": "dense-background-copy",
+      "type": "prose",
+      "markdown": "The background view centers fulfillment, communication, transport and operational insight. A replay path is shown as a dependency, not as permission to replay any event blindly. A real system would define retention, access controls and recovery procedures separately."
+    },
+    {
+      "id": "dense-background-embed",
+      "type": "diagram",
+      "diagramId": "dense-focus-2"
+    }
+  ]
+}

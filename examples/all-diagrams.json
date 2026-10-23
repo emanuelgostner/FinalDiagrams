@@ -1,0 +1,2021 @@
+{
+  "schemaVersion": 1,
+  "id": "all-diagrams",
+  "title": "Architecture, data and behavior",
+  "subtitle": "A fictional backend, from checkout to persistence",
+  "revision": 0,
+  "entities": [
+    {
+      "id": "orders-shopper",
+      "kind": "actor",
+      "name": "Shopper",
+      "summary": "Places an order and follows its progress.",
+      "group": "orders-users",
+      "description": "A person using the sample storefront. The API accepts only the authenticated shopper identity, never an arbitrary customer ID from a request body."
+    },
+    {
+      "id": "orders-operator",
+      "kind": "actor",
+      "name": "Support operator",
+      "summary": "Investigates order status with a read-only console.",
+      "group": "orders-users",
+      "description": "Uses the same API boundary with a support role. Refund and cancellation workflows are deliberately outside this introductory example."
+    },
+    {
+      "id": "orders-storefront",
+      "kind": "service",
+      "name": "Storefront",
+      "summary": "Collects a basket and presents order status.",
+      "group": "orders-services",
+      "technology": "Web client",
+      "description": "Sends a unique request key when the shopper confirms a basket. A retry reuses that key so an uncertain network outcome does not create a second order."
+    },
+    {
+      "id": "orders-gateway",
+      "kind": "service",
+      "name": "API gateway",
+      "summary": "Authenticates requests and forwards order commands.",
+      "group": "orders-services",
+      "technology": "HTTP / JSON",
+      "description": "Checks the bearer token, applies rate limits, attaches a correlation ID, and routes to the Order API. Domain rules remain in the service."
+    },
+    {
+      "id": "orders-order-api",
+      "kind": "service",
+      "name": "Order API",
+      "summary": "Owns order acceptance and the transactional outbox.",
+      "group": "orders-services",
+      "technology": "TypeScript",
+      "description": "Coordinates pricing, stock reservation and payment authorization. It commits the order and the pending OrderAccepted event in one database transaction. A declined authorization returns a failure and releases the reservation; that alternative is described in prose, not encoded as a second path in the sequence."
+    },
+    {
+      "id": "orders-inventory",
+      "kind": "service",
+      "name": "Inventory service",
+      "summary": "Reserves sellable stock for a short window.",
+      "group": "orders-services",
+      "technology": "HTTP service",
+      "description": "A reservation is temporary until fulfillment confirms it. In this fictional design, reservation IDs make retries idempotent and expiry compensates for abandoned checkouts."
+    },
+    {
+      "id": "orders-fulfillment",
+      "kind": "service",
+      "name": "Fulfillment worker",
+      "summary": "Consumes accepted orders and schedules packing.",
+      "group": "orders-services",
+      "technology": "Background worker",
+      "description": "Consumes messages at least once, records handled event IDs, and sends a confirmation email. Acknowledges the message only after its durable work succeeds."
+    },
+    {
+      "id": "orders-orders-db",
+      "kind": "database",
+      "name": "Orders database",
+      "summary": "Stores orders, request keys and pending events.",
+      "group": "orders-data",
+      "technology": "PostgreSQL",
+      "description": "The Order API owns writes. The outbox relay is a loop inside the same service process in this small example; a production deployment could split it into a separate worker."
+    },
+    {
+      "id": "orders-events",
+      "kind": "queue",
+      "name": "Order event queue",
+      "summary": "Buffers accepted-order notifications.",
+      "group": "orders-data",
+      "technology": "Message broker",
+      "description": "Delivery is at least once. Event IDs support deduplication; the queue does not promise exactly-once effects across the database, fulfillment system and email provider."
+    },
+    {
+      "id": "orders-payments",
+      "kind": "external",
+      "name": "Payment provider",
+      "summary": "Authorizes the final amount with an idempotency key.",
+      "group": "orders-external",
+      "technology": "External API",
+      "description": "A successful authorization reserves funds; it is not a completed capture. Timeouts need reconciliation before the API decides whether to retry, fail or compensate."
+    },
+    {
+      "id": "orders-email",
+      "kind": "external",
+      "name": "Email provider",
+      "summary": "Delivers the shopper confirmation.",
+      "group": "orders-external",
+      "technology": "External API",
+      "description": "A delivery failure is retried by the background workflow. It must not reverse an already accepted order."
+    },
+    {
+      "id": "orders-order",
+      "kind": "class",
+      "name": "Order",
+      "summary": "Aggregate root that protects accepted order invariants.",
+      "group": "orders-domain",
+      "description": "A fictional teaching model. Status transitions are methods so callers cannot silently skip validation.",
+      "fields": [
+        {
+          "id": "orders-order-id",
+          "name": "id",
+          "type": "OrderId",
+          "purpose": "Stable identity across API, events and support.",
+          "visibility": "public",
+          "details": "Generated once; opaque outside the order boundary.",
+          "values": {
+            "invariant": "Immutable"
+          }
+        },
+        {
+          "id": "orders-order-lines",
+          "name": "lines",
+          "type": "OrderLine[]",
+          "purpose": "Snapshot of purchased items and agreed prices.",
+          "visibility": "public",
+          "details": "A later catalog change does not rewrite the accepted order.",
+          "values": {
+            "invariant": "At least one line"
+          }
+        },
+        {
+          "id": "orders-order-status",
+          "name": "status",
+          "type": "OrderStatus",
+          "purpose": "Records the current lifecycle stage.",
+          "visibility": "private",
+          "details": "Changes through accept() and markPacking(), not direct assignment.",
+          "values": {
+            "invariant": "Transition checked"
+          }
+        }
+      ],
+      "methods": [
+        {
+          "id": "orders-accept",
+          "name": "accept()",
+          "type": "OrderAccepted",
+          "purpose": "Checks totals and moves the order into Accepted.",
+          "visibility": "public",
+          "details": "Requires reservation and successful authorization.",
+          "values": {
+            "invariant": "Only from Pending"
+          }
+        },
+        {
+          "id": "orders-mark-packing",
+          "name": "markPacking()",
+          "type": "void",
+          "purpose": "Moves an accepted order into packing.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Only from Accepted"
+          }
+        }
+      ]
+    },
+    {
+      "id": "orders-order-line",
+      "kind": "class",
+      "name": "OrderLine",
+      "summary": "Immutable purchase snapshot for one product.",
+      "group": "orders-domain",
+      "fields": [
+        {
+          "id": "orders-line-sku",
+          "name": "sku",
+          "type": "string",
+          "purpose": "Connects a line to the reserved product.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Nonempty"
+          }
+        },
+        {
+          "id": "orders-line-quantity",
+          "name": "quantity",
+          "type": "integer",
+          "purpose": "Number of units promised to the shopper.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Greater than zero"
+          }
+        },
+        {
+          "id": "orders-line-price",
+          "name": "unitPrice",
+          "type": "Money",
+          "purpose": "Price agreed at checkout.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Nonnegative"
+          }
+        }
+      ],
+      "methods": [
+        {
+          "id": "orders-subtotal",
+          "name": "subtotal()",
+          "type": "Money",
+          "purpose": "Computes quantity times the agreed price.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Same currency"
+          }
+        }
+      ]
+    },
+    {
+      "id": "orders-money",
+      "kind": "class",
+      "name": "Money",
+      "summary": "Value object for amounts and currency.",
+      "group": "orders-domain",
+      "fields": [
+        {
+          "id": "orders-money-minor",
+          "name": "minorUnits",
+          "type": "integer",
+          "purpose": "Stores cents or another currency minor unit.",
+          "visibility": "public",
+          "details": "No floating-point amount arithmetic.",
+          "values": {
+            "invariant": "Integer"
+          }
+        },
+        {
+          "id": "orders-money-currency",
+          "name": "currency",
+          "type": "string",
+          "purpose": "Identifies the currency used for arithmetic.",
+          "visibility": "public",
+          "values": {
+            "invariant": "ISO-style code"
+          }
+        }
+      ],
+      "methods": [
+        {
+          "id": "orders-money-add",
+          "name": "add(other)",
+          "type": "Money",
+          "purpose": "Adds amounts after checking their currencies.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Equal currency"
+          }
+        },
+        {
+          "id": "orders-money-times",
+          "name": "multiply(quantity)",
+          "type": "Money",
+          "purpose": "Scales the amount by a whole item count.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Integer quantity"
+          }
+        }
+      ]
+    },
+    {
+      "id": "orders-order-service",
+      "kind": "class",
+      "name": "PlaceOrderService",
+      "summary": "Application coordinator for a checkout request.",
+      "group": "orders-application",
+      "fields": [
+        {
+          "id": "orders-service-repository",
+          "name": "orders",
+          "type": "OrderRepository",
+          "purpose": "Loads existing request keys and commits orders.",
+          "visibility": "private",
+          "values": {
+            "invariant": "Injected dependency"
+          }
+        }
+      ],
+      "methods": [
+        {
+          "id": "orders-place",
+          "name": "place(command)",
+          "type": "OrderResult",
+          "purpose": "Coordinates reservation, authorization and persistence.",
+          "visibility": "public",
+          "details": "Idempotent lookup happens before a fresh attempt starts.",
+          "values": {
+            "invariant": "One result per request key"
+          }
+        }
+      ]
+    },
+    {
+      "id": "orders-order-repository",
+      "kind": "interface",
+      "name": "OrderRepository",
+      "summary": "Persistence boundary used by the application service.",
+      "group": "orders-application",
+      "methods": [
+        {
+          "id": "orders-find-request",
+          "name": "findByRequestKey(key)",
+          "type": "Order | null",
+          "purpose": "Returns a prior result for a retried request.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Unique request key"
+          }
+        },
+        {
+          "id": "orders-save-event",
+          "name": "saveWithEvent(order, event)",
+          "type": "void",
+          "purpose": "Atomically persists an order and its pending event.",
+          "visibility": "public",
+          "details": "The adapter uses one database transaction.",
+          "values": {
+            "invariant": "All or nothing"
+          }
+        }
+      ]
+    },
+    {
+      "id": "validation-regular-input",
+      "kind": "state",
+      "name": "Regular input",
+      "summary": "No validation error is shown.",
+      "description": "The field can contain missing or invalid input until Save or field blur triggers validation. Regular describes the visible state, not a guarantee that the current value is valid.",
+      "tone": "neutral"
+    },
+    {
+      "id": "validation-validity-choice",
+      "kind": "choice",
+      "name": "Input valid?",
+      "summary": "Check the current value when validation is triggered.",
+      "description": "Evaluate the value and retain which event triggered this check. A valid value returns to Regular input. Missing or invalid input enters the error state associated with Save or field blur.",
+      "tone": "info"
+    },
+    {
+      "id": "validation-save-error",
+      "kind": "state",
+      "name": "Error after Save",
+      "summary": "Save found missing or invalid input.",
+      "description": "Keep the error visible while the user types, even when the value becomes valid. Save does not clear this error. Only field blur with a valid value returns to Regular input; blur with an invalid value leaves the error unchanged.",
+      "tone": "error"
+    },
+    {
+      "id": "validation-blur-error",
+      "kind": "state",
+      "name": "Error after blur",
+      "summary": "Field blur found missing or invalid input.",
+      "description": "Keep the error visible while the user types, even when the value becomes valid. Save does not clear this error. Only field blur with a valid value returns to Regular input; blur with an invalid value leaves the error unchanged.",
+      "tone": "error"
+    },
+    {
+      "id": "data-orders",
+      "kind": "table",
+      "name": "sales.order_headers",
+      "group": "data-ordering",
+      "summary": "One accepted order per row.",
+      "description": "Fictional ORM record OrderRow. The database and code names differ deliberately; the row-level mapping columns make that relationship visible. This persistence model is separate from the domain types in the class view.",
+      "fields": [
+        {
+          "id": "order-pk",
+          "name": "order_id",
+          "type": "uuid",
+          "purpose": "Primary key",
+          "values": {
+            "codeClass": "OrderRow",
+            "property": "Id"
+          }
+        },
+        {
+          "id": "order-ref",
+          "name": "public_reference",
+          "type": "text",
+          "purpose": "Support reference",
+          "values": {
+            "codeClass": "OrderRow",
+            "property": "Number"
+          }
+        },
+        {
+          "id": "order-status",
+          "name": "status_code",
+          "type": "text",
+          "purpose": "Lifecycle state",
+          "values": {
+            "codeClass": "OrderRow",
+            "property": "Status"
+          }
+        },
+        {
+          "id": "order-total",
+          "name": "total_minor",
+          "type": "bigint",
+          "purpose": "Accepted total",
+          "values": {
+            "codeClass": "OrderRow",
+            "property": "TotalInCents"
+          }
+        },
+        {
+          "id": "order-note",
+          "name": "delivery_instructions",
+          "type": "text?",
+          "purpose": "Packing instructions",
+          "values": {
+            "codeClass": "OrderRow",
+            "property": "DeliveryNote"
+          }
+        }
+      ]
+    },
+    {
+      "id": "data-items",
+      "kind": "table",
+      "name": "sales.order_items",
+      "group": "data-ordering",
+      "summary": "Purchased items and agreed prices.",
+      "description": "Fictional ORM record OrderItemRow. The composite key is (order_id, product_id). The product foreign key crosses into the Catalog module; stored price snapshots do not change when catalog pricing changes.",
+      "fields": [
+        {
+          "id": "item-order",
+          "name": "order_id",
+          "type": "uuid",
+          "purpose": "PK; order FK",
+          "values": {
+            "codeClass": "OrderItemRow",
+            "property": "OrderId"
+          }
+        },
+        {
+          "id": "item-product",
+          "name": "product_id",
+          "type": "uuid",
+          "purpose": "PK; catalog FK",
+          "values": {
+            "codeClass": "OrderItemRow",
+            "property": "ProductId"
+          }
+        },
+        {
+          "id": "item-quantity",
+          "name": "quantity",
+          "type": "integer",
+          "purpose": "Purchased units",
+          "values": {
+            "codeClass": "OrderItemRow",
+            "property": "Units"
+          }
+        },
+        {
+          "id": "item-price",
+          "name": "unit_price_minor",
+          "type": "bigint",
+          "purpose": "Price snapshot",
+          "values": {
+            "codeClass": "OrderItemRow",
+            "property": "QuotedPrice"
+          }
+        }
+      ]
+    },
+    {
+      "id": "data-products",
+      "kind": "table",
+      "name": "catalog.products",
+      "group": "data-catalog",
+      "summary": "Sellable products maintained by Catalog.",
+      "description": "Fictional ORM record ProductRow. Catalog owns writes; Ordering stores references and purchase snapshots. Physical identifiers and application properties are displayed independently rather than inferred from naming conventions.",
+      "fields": [
+        {
+          "id": "product-pk",
+          "name": "product_id",
+          "type": "uuid",
+          "purpose": "Primary key",
+          "values": {
+            "codeClass": "ProductRow",
+            "property": "Id"
+          }
+        },
+        {
+          "id": "product-sku",
+          "name": "sku_code",
+          "type": "varchar(48)",
+          "purpose": "Unique stock code",
+          "values": {
+            "codeClass": "ProductRow",
+            "property": "StockCode"
+          }
+        },
+        {
+          "id": "product-title",
+          "name": "display_name",
+          "type": "text",
+          "purpose": "Shopper label",
+          "values": {
+            "codeClass": "ProductRow",
+            "property": "Name"
+          }
+        },
+        {
+          "id": "product-price",
+          "name": "price_minor",
+          "type": "bigint",
+          "purpose": "Current price",
+          "values": {
+            "codeClass": "ProductRow",
+            "property": "PriceInCents"
+          }
+        }
+      ]
+    },
+    {
+      "id": "landscape-web",
+      "kind": "service",
+      "name": "Web storefront",
+      "summary": "Part of the fictional access and experience boundary.",
+      "group": "landscape-access",
+      "description": "Web storefront is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-mobile",
+      "kind": "service",
+      "name": "Mobile storefront",
+      "summary": "Part of the fictional access and experience boundary.",
+      "group": "landscape-access",
+      "description": "Mobile storefront is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-support",
+      "kind": "actor",
+      "name": "Support operator",
+      "summary": "Part of the fictional access and experience boundary.",
+      "group": "landscape-access",
+      "description": "Support operator is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-edge",
+      "kind": "service",
+      "name": "API edge",
+      "summary": "Part of the fictional access and experience boundary.",
+      "group": "landscape-access",
+      "description": "API edge is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-identity",
+      "kind": "external",
+      "name": "Identity provider",
+      "summary": "Part of the fictional access and experience boundary.",
+      "group": "landscape-access",
+      "description": "Identity provider is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-checkout",
+      "kind": "service",
+      "name": "Checkout API",
+      "summary": "Part of the fictional ordering boundary.",
+      "group": "landscape-ordering",
+      "description": "Checkout API is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-basket",
+      "kind": "service",
+      "name": "Basket service",
+      "summary": "Part of the fictional ordering boundary.",
+      "group": "landscape-ordering",
+      "description": "Basket service is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-pricing",
+      "kind": "service",
+      "name": "Pricing service",
+      "summary": "Part of the fictional ordering boundary.",
+      "group": "landscape-ordering",
+      "description": "Pricing service is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-orders-store",
+      "kind": "database",
+      "name": "Order store",
+      "summary": "Part of the fictional ordering boundary.",
+      "group": "landscape-ordering",
+      "description": "Order store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-order-outbox",
+      "kind": "queue",
+      "name": "Order outbox",
+      "summary": "Part of the fictional ordering boundary.",
+      "group": "landscape-ordering",
+      "description": "Order outbox is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-catalog",
+      "kind": "service",
+      "name": "Catalog API",
+      "summary": "Part of the fictional stock and catalog boundary.",
+      "group": "landscape-stock",
+      "description": "Catalog API is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-catalog-store",
+      "kind": "database",
+      "name": "Catalog store",
+      "summary": "Part of the fictional stock and catalog boundary.",
+      "group": "landscape-stock",
+      "description": "Catalog store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-stock-api",
+      "kind": "service",
+      "name": "Stock API",
+      "summary": "Part of the fictional stock and catalog boundary.",
+      "group": "landscape-stock",
+      "description": "Stock API is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-stock-store",
+      "kind": "database",
+      "name": "Stock ledger",
+      "summary": "Part of the fictional stock and catalog boundary.",
+      "group": "landscape-stock",
+      "description": "Stock ledger is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-stock-worker",
+      "kind": "service",
+      "name": "Reservation expiry worker",
+      "summary": "Part of the fictional stock and catalog boundary.",
+      "group": "landscape-stock",
+      "description": "Reservation expiry worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-payment-api",
+      "kind": "service",
+      "name": "Payment adapter",
+      "summary": "Part of the fictional payments and finance boundary.",
+      "group": "landscape-money",
+      "description": "Payment adapter is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-payment-vendor",
+      "kind": "external",
+      "name": "Payment provider",
+      "summary": "Part of the fictional payments and finance boundary.",
+      "group": "landscape-money",
+      "description": "Payment provider is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-payment-store",
+      "kind": "database",
+      "name": "Payment ledger",
+      "summary": "Part of the fictional payments and finance boundary.",
+      "group": "landscape-money",
+      "description": "Payment ledger is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-reconcile",
+      "kind": "service",
+      "name": "Reconciliation worker",
+      "summary": "Part of the fictional payments and finance boundary.",
+      "group": "landscape-money",
+      "description": "Reconciliation worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-finance-export",
+      "kind": "service",
+      "name": "Finance exporter",
+      "summary": "Part of the fictional payments and finance boundary.",
+      "group": "landscape-money",
+      "description": "Finance exporter is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-fulfillment-api",
+      "kind": "service",
+      "name": "Fulfillment API",
+      "summary": "Part of the fictional fulfillment and delivery boundary.",
+      "group": "landscape-delivery",
+      "description": "Fulfillment API is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-packing",
+      "kind": "service",
+      "name": "Packing worker",
+      "summary": "Part of the fictional fulfillment and delivery boundary.",
+      "group": "landscape-delivery",
+      "description": "Packing worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-warehouse",
+      "kind": "external",
+      "name": "Warehouse system",
+      "summary": "Part of the fictional fulfillment and delivery boundary.",
+      "group": "landscape-delivery",
+      "description": "Warehouse system is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-carrier",
+      "kind": "external",
+      "name": "Carrier gateway",
+      "summary": "Part of the fictional fulfillment and delivery boundary.",
+      "group": "landscape-delivery",
+      "description": "Carrier gateway is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-delivery-store",
+      "kind": "database",
+      "name": "Delivery store",
+      "summary": "Part of the fictional fulfillment and delivery boundary.",
+      "group": "landscape-delivery",
+      "description": "Delivery store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-notify",
+      "kind": "service",
+      "name": "Notification worker",
+      "summary": "Part of the fictional customer communication boundary.",
+      "group": "landscape-communication",
+      "description": "Notification worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-preferences",
+      "kind": "service",
+      "name": "Preference API",
+      "summary": "Part of the fictional customer communication boundary.",
+      "group": "landscape-communication",
+      "description": "Preference API is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-prefs-store",
+      "kind": "database",
+      "name": "Preference store",
+      "summary": "Part of the fictional customer communication boundary.",
+      "group": "landscape-communication",
+      "description": "Preference store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-mail",
+      "kind": "external",
+      "name": "Email provider",
+      "summary": "Part of the fictional customer communication boundary.",
+      "group": "landscape-communication",
+      "description": "Email provider is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-sms",
+      "kind": "external",
+      "name": "SMS provider",
+      "summary": "Part of the fictional customer communication boundary.",
+      "group": "landscape-communication",
+      "description": "SMS provider is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-broker",
+      "kind": "queue",
+      "name": "Domain event broker",
+      "summary": "Part of the fictional event transport boundary.",
+      "group": "landscape-events-group",
+      "description": "Domain event broker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-dead-letter",
+      "kind": "queue",
+      "name": "Dead-letter queue",
+      "summary": "Part of the fictional event transport boundary.",
+      "group": "landscape-events-group",
+      "description": "Dead-letter queue is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-retry",
+      "kind": "service",
+      "name": "Retry worker",
+      "summary": "Part of the fictional event transport boundary.",
+      "group": "landscape-events-group",
+      "description": "Retry worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-schema-registry",
+      "kind": "service",
+      "name": "Schema registry",
+      "summary": "Part of the fictional event transport boundary.",
+      "group": "landscape-events-group",
+      "description": "Schema registry is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-audit-store",
+      "kind": "database",
+      "name": "Event audit store",
+      "summary": "Part of the fictional event transport boundary.",
+      "group": "landscape-events-group",
+      "description": "Event audit store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-telemetry",
+      "kind": "service",
+      "name": "Telemetry collector",
+      "summary": "Part of the fictional operations and analytics boundary.",
+      "group": "landscape-insight",
+      "description": "Telemetry collector is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-metrics",
+      "kind": "database",
+      "name": "Metrics store",
+      "summary": "Part of the fictional operations and analytics boundary.",
+      "group": "landscape-insight",
+      "description": "Metrics store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-logs",
+      "kind": "database",
+      "name": "Log store",
+      "summary": "Part of the fictional operations and analytics boundary.",
+      "group": "landscape-insight",
+      "description": "Log store is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-analytics",
+      "kind": "service",
+      "name": "Analytics worker",
+      "summary": "Part of the fictional operations and analytics boundary.",
+      "group": "landscape-insight",
+      "description": "Analytics worker is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "landscape-warehouse-store",
+      "kind": "database",
+      "name": "Analytics warehouse",
+      "summary": "Part of the fictional operations and analytics boundary.",
+      "group": "landscape-insight",
+      "description": "Analytics warehouse is a fictional responsibility in a deliberately dense navigation exercise. The diagram shows selected dependencies only; it does not prove runtime ordering, deployment isolation, ownership or a production operating model."
+    },
+    {
+      "id": "retry-request",
+      "kind": "state",
+      "name": "Request in progress",
+      "summary": "Wait for the external service.",
+      "description": "A transient transport error schedules another attempt. Successful completion is outside this focused retry view."
+    },
+    {
+      "id": "retry-backoff",
+      "kind": "state",
+      "name": "Waiting to retry",
+      "summary": "Back off before the next attempt.",
+      "description": "Retry only when the request is safe to repeat and the retry budget has not been exhausted."
+    }
+  ],
+  "relations": [
+    {
+      "id": "orders-shopper-storefront",
+      "source": "orders-shopper",
+      "target": "orders-storefront",
+      "label": "checks out",
+      "kind": "calls"
+    },
+    {
+      "id": "orders-operator-gateway",
+      "source": "orders-operator",
+      "target": "orders-gateway",
+      "label": "looks up orders",
+      "kind": "calls"
+    },
+    {
+      "id": "orders-storefront-gateway",
+      "source": "orders-storefront",
+      "target": "orders-gateway",
+      "label": "POST /orders",
+      "kind": "calls"
+    },
+    {
+      "id": "orders-gateway-orders",
+      "source": "orders-gateway",
+      "target": "orders-order-api",
+      "label": "authenticated command",
+      "kind": "calls"
+    },
+    {
+      "id": "orders-orders-inventory",
+      "source": "orders-order-api",
+      "target": "orders-inventory",
+      "label": "reserves stock",
+      "kind": "calls"
+    },
+    {
+      "id": "orders-orders-payment",
+      "source": "orders-order-api",
+      "target": "orders-payments",
+      "label": "authorizes funds",
+      "kind": "calls"
+    },
+    {
+      "id": "orders-orders-storage",
+      "source": "orders-order-api",
+      "target": "orders-orders-db",
+      "label": "order + outbox",
+      "kind": "writes"
+    },
+    {
+      "id": "orders-orders-events",
+      "source": "orders-order-api",
+      "target": "orders-events",
+      "label": "relays OrderAccepted",
+      "kind": "async"
+    },
+    {
+      "id": "orders-events-fulfillment",
+      "source": "orders-events",
+      "target": "orders-fulfillment",
+      "label": "delivers event",
+      "kind": "async"
+    },
+    {
+      "id": "orders-fulfillment-email",
+      "source": "orders-fulfillment",
+      "target": "orders-email",
+      "label": "sends confirmation",
+      "kind": "calls"
+    },
+    {
+      "id": "orders-order-lines-rel",
+      "source": "orders-order",
+      "target": "orders-order-line",
+      "label": "contains",
+      "kind": "composition",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "1..*",
+      "sourceMember": "orders-order-lines",
+      "description": "An order owns its immutable line snapshots."
+    },
+    {
+      "id": "orders-line-money",
+      "source": "orders-order-line",
+      "target": "orders-money",
+      "label": "agreed price",
+      "kind": "composition",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "1",
+      "sourceMember": "orders-line-price"
+    },
+    {
+      "id": "orders-service-order",
+      "source": "orders-order-service",
+      "target": "orders-order",
+      "label": "creates and accepts",
+      "kind": "dependency"
+    },
+    {
+      "id": "orders-service-repository",
+      "source": "orders-order-service",
+      "target": "orders-order-repository",
+      "label": "uses",
+      "kind": "dependency",
+      "sourceMember": "orders-service-repository"
+    },
+    {
+      "id": "orders-repository-order",
+      "source": "orders-order-repository",
+      "target": "orders-order",
+      "label": "loads and stores",
+      "kind": "association"
+    },
+    {
+      "id": "validation-validate-input",
+      "source": "validation-regular-input",
+      "target": "validation-validity-choice",
+      "kind": "transition",
+      "label": "Save or field blur",
+      "description": "Run validation only when an action such as Save occurs or the field loses focus.",
+      "tone": "neutral"
+    },
+    {
+      "id": "validation-valid-input",
+      "source": "validation-validity-choice",
+      "target": "validation-regular-input",
+      "kind": "transition",
+      "label": "[valid]",
+      "description": "When no error is visible and validation succeeds, remain in the regular visible state.",
+      "tone": "neutral"
+    },
+    {
+      "id": "validation-invalid-on-save",
+      "source": "validation-validity-choice",
+      "target": "validation-save-error",
+      "kind": "transition",
+      "label": "[invalid] Save",
+      "description": "This check was triggered by Save and the input is missing or invalid.",
+      "tone": "error"
+    },
+    {
+      "id": "validation-invalid-on-blur",
+      "source": "validation-validity-choice",
+      "target": "validation-blur-error",
+      "kind": "transition",
+      "label": "[invalid] Field blur",
+      "description": "This check was triggered by losing field focus and the input is missing or invalid.",
+      "tone": "error"
+    },
+    {
+      "id": "validation-clear-save-error",
+      "source": "validation-save-error",
+      "target": "validation-regular-input",
+      "kind": "transition",
+      "label": "Field blur [input valid]",
+      "description": "Clear the existing error only after the input is correct and the field loses focus. Typing alone or pressing Save does not take this transition.",
+      "tone": "success"
+    },
+    {
+      "id": "validation-clear-blur-error",
+      "source": "validation-blur-error",
+      "target": "validation-regular-input",
+      "kind": "transition",
+      "label": "Field blur [input valid]",
+      "description": "Clear the existing error only after the input is correct and the field loses focus. Typing alone or pressing Save does not take this transition.",
+      "tone": "success"
+    },
+    {
+      "id": "data-item-order-fk",
+      "source": "data-orders",
+      "target": "data-items",
+      "kind": "association",
+      "label": "contains",
+      "sourceMember": "order-pk",
+      "targetMember": "item-order",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "1..n",
+      "description": "sales.order_headers.order_id (PK) → sales.order_items.order_id (FK). Each item belongs to exactly one order. An accepted order contains one or more items in this fictional domain; the minimum of one is enforced by the application, not by the foreign key alone."
+    },
+    {
+      "id": "data-item-product-fk",
+      "source": "data-products",
+      "target": "data-items",
+      "kind": "association",
+      "label": "purchased as",
+      "sourceMember": "product-pk",
+      "targetMember": "item-product",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "0..n",
+      "description": "catalog.products.product_id (PK) → sales.order_items.product_id (FK). A catalog product may appear in zero or many order items; each item references exactly one product. This foreign key crosses module ownership boundaries."
+    },
+    {
+      "id": "landscape-dense-edge-01",
+      "source": "landscape-web",
+      "target": "landscape-edge",
+      "label": "HTTPS",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-02",
+      "source": "landscape-mobile",
+      "target": "landscape-edge",
+      "label": "HTTPS",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-03",
+      "source": "landscape-support",
+      "target": "landscape-edge",
+      "label": "read-only lookup",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-04",
+      "source": "landscape-edge",
+      "target": "landscape-identity",
+      "label": "validates token",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-05",
+      "source": "landscape-edge",
+      "target": "landscape-checkout",
+      "label": "routes command",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-06",
+      "source": "landscape-checkout",
+      "target": "landscape-basket",
+      "label": "reads basket",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-07",
+      "source": "landscape-checkout",
+      "target": "landscape-pricing",
+      "label": "quotes",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-08",
+      "source": "landscape-checkout",
+      "target": "landscape-orders-store",
+      "label": "persists order",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-09",
+      "source": "landscape-checkout",
+      "target": "landscape-order-outbox",
+      "label": "records event",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-10",
+      "source": "landscape-catalog",
+      "target": "landscape-catalog-store",
+      "label": "reads products",
+      "kind": "reads",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-11",
+      "source": "landscape-stock-api",
+      "target": "landscape-stock-store",
+      "label": "reserves units",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-12",
+      "source": "landscape-stock-worker",
+      "target": "landscape-stock-store",
+      "label": "expires holds",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-13",
+      "source": "landscape-checkout",
+      "target": "landscape-stock-api",
+      "label": "reserves",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-14",
+      "source": "landscape-checkout",
+      "target": "landscape-catalog",
+      "label": "resolves SKU",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-15",
+      "source": "landscape-payment-api",
+      "target": "landscape-payment-vendor",
+      "label": "authorizes",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-16",
+      "source": "landscape-payment-api",
+      "target": "landscape-payment-store",
+      "label": "records outcome",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-17",
+      "source": "landscape-reconcile",
+      "target": "landscape-payment-vendor",
+      "label": "queries outcome",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-18",
+      "source": "landscape-reconcile",
+      "target": "landscape-payment-store",
+      "label": "updates ledger",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-19",
+      "source": "landscape-finance-export",
+      "target": "landscape-payment-store",
+      "label": "reads ledger",
+      "kind": "reads",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-20",
+      "source": "landscape-checkout",
+      "target": "landscape-payment-api",
+      "label": "requests authorization",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-21",
+      "source": "landscape-fulfillment-api",
+      "target": "landscape-delivery-store",
+      "label": "stores plan",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-22",
+      "source": "landscape-packing",
+      "target": "landscape-warehouse",
+      "label": "requests packing",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-23",
+      "source": "landscape-packing",
+      "target": "landscape-carrier",
+      "label": "books shipment",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-24",
+      "source": "landscape-packing",
+      "target": "landscape-delivery-store",
+      "label": "records tracking",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-25",
+      "source": "landscape-fulfillment-api",
+      "target": "landscape-packing",
+      "label": "schedules work",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-26",
+      "source": "landscape-notify",
+      "target": "landscape-preferences",
+      "label": "checks consent",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-27",
+      "source": "landscape-preferences",
+      "target": "landscape-prefs-store",
+      "label": "reads settings",
+      "kind": "reads",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-28",
+      "source": "landscape-notify",
+      "target": "landscape-mail",
+      "label": "sends email",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-29",
+      "source": "landscape-notify",
+      "target": "landscape-sms",
+      "label": "sends SMS",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-30",
+      "source": "landscape-order-outbox",
+      "target": "landscape-broker",
+      "label": "relays event",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-31",
+      "source": "landscape-broker",
+      "target": "landscape-fulfillment-api",
+      "label": "delivers accepted order",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-32",
+      "source": "landscape-broker",
+      "target": "landscape-notify",
+      "label": "delivers status change",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-33",
+      "source": "landscape-broker",
+      "target": "landscape-dead-letter",
+      "label": "exhausted retries",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-34",
+      "source": "landscape-retry",
+      "target": "landscape-dead-letter",
+      "label": "reads failed event",
+      "kind": "reads",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-35",
+      "source": "landscape-retry",
+      "target": "landscape-broker",
+      "label": "replays inspected event",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-36",
+      "source": "landscape-broker",
+      "target": "landscape-schema-registry",
+      "label": "validates schema",
+      "kind": "calls",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-37",
+      "source": "landscape-broker",
+      "target": "landscape-audit-store",
+      "label": "records event metadata",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-38",
+      "source": "landscape-telemetry",
+      "target": "landscape-metrics",
+      "label": "stores metrics",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-39",
+      "source": "landscape-telemetry",
+      "target": "landscape-logs",
+      "label": "stores logs",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-40",
+      "source": "landscape-broker",
+      "target": "landscape-analytics",
+      "label": "delivers events",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-41",
+      "source": "landscape-analytics",
+      "target": "landscape-warehouse-store",
+      "label": "writes aggregates",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-42",
+      "source": "landscape-edge",
+      "target": "landscape-telemetry",
+      "label": "emits traces",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-43",
+      "source": "landscape-checkout",
+      "target": "landscape-telemetry",
+      "label": "emits spans",
+      "kind": "async",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "landscape-dense-edge-44",
+      "source": "landscape-finance-export",
+      "target": "landscape-warehouse-store",
+      "label": "writes finance data",
+      "kind": "writes",
+      "description": "A selected fictional dependency. Use the local group view for closer reading."
+    },
+    {
+      "id": "retry-failure",
+      "source": "retry-request",
+      "target": "retry-backoff",
+      "kind": "transition",
+      "label": "Transient failure",
+      "description": "The request timed out or encountered a retryable transport failure.",
+      "tone": "warning"
+    },
+    {
+      "id": "retry-due",
+      "source": "retry-backoff",
+      "target": "retry-request",
+      "kind": "transition",
+      "label": "Retry due",
+      "description": "The backoff elapsed and another attempt is permitted.",
+      "tone": "info"
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "orders-system-overview",
+      "type": "system",
+      "title": "Checkout and fulfillment",
+      "description": "People, owned services, durable data and external providers. The Order API owns the checkout boundary.",
+      "entityIds": [
+        "orders-shopper",
+        "orders-operator",
+        "orders-storefront",
+        "orders-gateway",
+        "orders-order-api",
+        "orders-inventory",
+        "orders-fulfillment",
+        "orders-orders-db",
+        "orders-events",
+        "orders-payments",
+        "orders-email"
+      ],
+      "relationIds": [
+        "orders-shopper-storefront",
+        "orders-operator-gateway",
+        "orders-storefront-gateway",
+        "orders-gateway-orders",
+        "orders-orders-inventory",
+        "orders-orders-payment",
+        "orders-orders-storage",
+        "orders-orders-events",
+        "orders-events-fulfillment",
+        "orders-fulfillment-email"
+      ],
+      "direction": "RIGHT",
+      "notation": "plain",
+      "groups": [
+        {
+          "id": "orders-users",
+          "label": "People"
+        },
+        {
+          "id": "orders-services",
+          "label": "Owned services"
+        },
+        {
+          "id": "orders-data",
+          "label": "Durable data"
+        },
+        {
+          "id": "orders-external",
+          "label": "External providers"
+        }
+      ]
+    },
+    {
+      "id": "orders-order-sequence",
+      "type": "sequence",
+      "title": "A successful order request",
+      "description": "The successful checkout path. Fulfillment continues asynchronously after the response.",
+      "entityIds": [
+        "orders-shopper",
+        "orders-storefront",
+        "orders-gateway",
+        "orders-order-api",
+        "orders-orders-db",
+        "orders-inventory",
+        "orders-payments",
+        "orders-events",
+        "orders-fulfillment"
+      ],
+      "messages": [
+        {
+          "id": "orders-m01",
+          "from": "orders-shopper",
+          "to": "orders-storefront",
+          "label": "Confirm basket",
+          "kind": "sync",
+          "phase": "Validate and reserve",
+          "description": "The client keeps the same request key across retries."
+        },
+        {
+          "id": "orders-m02",
+          "from": "orders-storefront",
+          "to": "orders-gateway",
+          "label": "POST /orders + request key",
+          "kind": "sync",
+          "phase": "Validate and reserve",
+          "description": "Payload contains SKU and quantity; the service determines trusted prices."
+        },
+        {
+          "id": "orders-m03",
+          "from": "orders-gateway",
+          "to": "orders-order-api",
+          "label": "Forward authenticated command",
+          "kind": "sync",
+          "phase": "Validate and reserve",
+          "description": "Token checks and the correlation ID are applied at the edge."
+        },
+        {
+          "id": "orders-m04",
+          "from": "orders-order-api",
+          "to": "orders-orders-db",
+          "label": "Find prior result by request key",
+          "kind": "sync",
+          "phase": "Validate and reserve",
+          "description": "This happy path has no previous result. A replay returns the existing order."
+        },
+        {
+          "id": "orders-m05",
+          "from": "orders-orders-db",
+          "to": "orders-order-api",
+          "label": "No existing order",
+          "kind": "return",
+          "phase": "Validate and reserve",
+          "description": "A unique database constraint also protects concurrent attempts."
+        },
+        {
+          "id": "orders-m06",
+          "from": "orders-order-api",
+          "to": "orders-inventory",
+          "label": "Reserve requested units",
+          "kind": "sync",
+          "phase": "Validate and reserve",
+          "description": "Reserve against a short expiry with an idempotent reservation key."
+        },
+        {
+          "id": "orders-m07",
+          "from": "orders-inventory",
+          "to": "orders-order-api",
+          "label": "Reservation confirmed",
+          "kind": "return",
+          "phase": "Validate and reserve",
+          "description": "The example assumes all requested items are available."
+        },
+        {
+          "id": "orders-m08",
+          "from": "orders-order-api",
+          "to": "orders-payments",
+          "label": "Authorize amount + request key",
+          "kind": "sync",
+          "phase": "Authorize and commit",
+          "description": "Authorization reserves funds; later capture is outside this walkthrough."
+        },
+        {
+          "id": "orders-m09",
+          "from": "orders-payments",
+          "to": "orders-order-api",
+          "label": "Authorization approved",
+          "kind": "return",
+          "phase": "Authorize and commit",
+          "description": "A timeout requires reconciliation because the external effect may have happened."
+        },
+        {
+          "id": "orders-m10",
+          "from": "orders-order-api",
+          "to": "orders-orders-db",
+          "label": "Commit order + outbox event",
+          "kind": "sync",
+          "phase": "Authorize and commit",
+          "description": "One transaction makes the order and pending event durable together."
+        },
+        {
+          "id": "orders-m11",
+          "from": "orders-orders-db",
+          "to": "orders-order-api",
+          "label": "Transaction committed",
+          "kind": "return",
+          "phase": "Authorize and commit",
+          "description": "The accepted response can now refer to a durable order."
+        },
+        {
+          "id": "orders-m12",
+          "from": "orders-order-api",
+          "to": "orders-gateway",
+          "label": "201 Created + order ID",
+          "kind": "return",
+          "phase": "Respond and hand off",
+          "description": "The gateway forwards the response to the storefront; two trivial forwarding arrows are omitted for space."
+        },
+        {
+          "id": "orders-m13",
+          "from": "orders-order-api",
+          "to": "orders-events",
+          "label": "Relay OrderAccepted from outbox",
+          "kind": "async",
+          "phase": "Respond and hand off",
+          "description": "The service relay may publish more than once after a crash. Consumers deduplicate by event ID."
+        },
+        {
+          "id": "orders-m14",
+          "from": "orders-events",
+          "to": "orders-fulfillment",
+          "label": "Deliver OrderAccepted",
+          "kind": "async",
+          "phase": "Respond and hand off",
+          "description": "Fulfillment records the event ID, schedules packing and sends the email shown in the overview."
+        }
+      ],
+      "notation": "uml"
+    },
+    {
+      "id": "orders-domain-classes",
+      "type": "class",
+      "title": "Domain responsibilities and invariants",
+      "description": "Application orchestration, domain rules and persistence responsibilities, with each member’s purpose and invariants.",
+      "entityIds": [
+        "orders-order",
+        "orders-order-line",
+        "orders-money",
+        "orders-order-service",
+        "orders-order-repository"
+      ],
+      "relationIds": [
+        "orders-order-lines-rel",
+        "orders-line-money",
+        "orders-service-order",
+        "orders-service-repository",
+        "orders-repository-order"
+      ],
+      "direction": "DOWN",
+      "notation": "uml",
+      "columns": [
+        {
+          "key": "name",
+          "label": "Member"
+        },
+        {
+          "key": "type",
+          "label": "Type / result"
+        },
+        {
+          "key": "purpose",
+          "label": "Purpose"
+        },
+        {
+          "key": "invariant",
+          "label": "Invariant"
+        }
+      ],
+      "groups": [
+        {
+          "id": "orders-domain",
+          "label": "Domain model"
+        },
+        {
+          "id": "orders-application",
+          "label": "Application layer"
+        }
+      ]
+    },
+    {
+      "id": "validation-validation-flow",
+      "type": "state",
+      "title": "When validation changes the visible state",
+      "entityIds": [
+        "validation-regular-input",
+        "validation-validity-choice",
+        "validation-save-error",
+        "validation-blur-error"
+      ],
+      "relationIds": [
+        "validation-validate-input",
+        "validation-valid-input",
+        "validation-invalid-on-save",
+        "validation-invalid-on-blur",
+        "validation-clear-save-error",
+        "validation-clear-blur-error"
+      ],
+      "direction": "DOWN",
+      "notation": "uml"
+    },
+    {
+      "id": "retry-loop",
+      "type": "state",
+      "title": "Transient request retry",
+      "description": "Two opposite transitions connect the same states: failure schedules backoff, and the next attempt returns to the request.",
+      "entityIds": [
+        "retry-request",
+        "retry-backoff"
+      ],
+      "relationIds": [
+        "retry-failure",
+        "retry-due"
+      ],
+      "direction": "RIGHT",
+      "notation": "uml"
+    },
+    {
+      "id": "data-mapping",
+      "type": "class",
+      "title": "Physical tables and ORM properties",
+      "description": "Links run from primary-key rows to their referencing foreign-key rows. Cardinalities describe how many records can participate at each end.",
+      "entityIds": [
+        "data-orders",
+        "data-items",
+        "data-products"
+      ],
+      "relationIds": [
+        "data-item-order-fk",
+        "data-item-product-fk"
+      ],
+      "direction": "DOWN",
+      "notation": "uml",
+      "groups": [
+        {
+          "id": "data-ordering",
+          "label": "Ordering module",
+          "description": "Owns accepted orders and purchase snapshots."
+        },
+        {
+          "id": "data-catalog",
+          "label": "Catalog module",
+          "description": "Owns the sellable product catalog."
+        }
+      ],
+      "columns": [
+        {
+          "key": "name",
+          "label": "Column"
+        },
+        {
+          "key": "type",
+          "label": "SQL type"
+        },
+        {
+          "key": "codeClass",
+          "label": "Code class"
+        },
+        {
+          "key": "property",
+          "label": "Property"
+        },
+        {
+          "key": "purpose",
+          "label": "Purpose"
+        }
+      ],
+      "positions": {
+        "data-orders": {
+          "x": 100,
+          "y": 100
+        },
+        "data-items": {
+          "x": 100,
+          "y": 550
+        },
+        "data-products": {
+          "x": 1200,
+          "y": 450
+        }
+      }
+    },
+    {
+      "id": "landscape-dense-overview",
+      "type": "system",
+      "title": "A larger commerce landscape",
+      "description": "40 entities in eight boundaries. The initial view favors readable local detail; Overview fits the complete map. Search, zoom and selection reveal responsibilities without changing the shared model.",
+      "entityIds": [
+        "landscape-web",
+        "landscape-mobile",
+        "landscape-support",
+        "landscape-edge",
+        "landscape-identity",
+        "landscape-checkout",
+        "landscape-basket",
+        "landscape-pricing",
+        "landscape-orders-store",
+        "landscape-order-outbox",
+        "landscape-catalog",
+        "landscape-catalog-store",
+        "landscape-stock-api",
+        "landscape-stock-store",
+        "landscape-stock-worker",
+        "landscape-payment-api",
+        "landscape-payment-vendor",
+        "landscape-payment-store",
+        "landscape-reconcile",
+        "landscape-finance-export",
+        "landscape-fulfillment-api",
+        "landscape-packing",
+        "landscape-warehouse",
+        "landscape-carrier",
+        "landscape-delivery-store",
+        "landscape-notify",
+        "landscape-preferences",
+        "landscape-prefs-store",
+        "landscape-mail",
+        "landscape-sms",
+        "landscape-broker",
+        "landscape-dead-letter",
+        "landscape-retry",
+        "landscape-schema-registry",
+        "landscape-audit-store",
+        "landscape-telemetry",
+        "landscape-metrics",
+        "landscape-logs",
+        "landscape-analytics",
+        "landscape-warehouse-store"
+      ],
+      "relationIds": [
+        "landscape-dense-edge-01",
+        "landscape-dense-edge-02",
+        "landscape-dense-edge-03",
+        "landscape-dense-edge-04",
+        "landscape-dense-edge-05",
+        "landscape-dense-edge-06",
+        "landscape-dense-edge-07",
+        "landscape-dense-edge-08",
+        "landscape-dense-edge-09",
+        "landscape-dense-edge-10",
+        "landscape-dense-edge-11",
+        "landscape-dense-edge-12",
+        "landscape-dense-edge-13",
+        "landscape-dense-edge-14",
+        "landscape-dense-edge-15",
+        "landscape-dense-edge-16",
+        "landscape-dense-edge-17",
+        "landscape-dense-edge-18",
+        "landscape-dense-edge-19",
+        "landscape-dense-edge-20",
+        "landscape-dense-edge-21",
+        "landscape-dense-edge-22",
+        "landscape-dense-edge-23",
+        "landscape-dense-edge-24",
+        "landscape-dense-edge-25",
+        "landscape-dense-edge-26",
+        "landscape-dense-edge-27",
+        "landscape-dense-edge-28",
+        "landscape-dense-edge-29",
+        "landscape-dense-edge-30",
+        "landscape-dense-edge-31",
+        "landscape-dense-edge-32",
+        "landscape-dense-edge-33",
+        "landscape-dense-edge-34",
+        "landscape-dense-edge-35",
+        "landscape-dense-edge-36",
+        "landscape-dense-edge-37",
+        "landscape-dense-edge-38",
+        "landscape-dense-edge-39",
+        "landscape-dense-edge-40",
+        "landscape-dense-edge-41",
+        "landscape-dense-edge-42",
+        "landscape-dense-edge-43",
+        "landscape-dense-edge-44"
+      ],
+      "direction": "RIGHT",
+      "groups": [
+        {
+          "id": "landscape-access",
+          "label": "Access and experience"
+        },
+        {
+          "id": "landscape-ordering",
+          "label": "Ordering"
+        },
+        {
+          "id": "landscape-stock",
+          "label": "Stock and catalog"
+        },
+        {
+          "id": "landscape-money",
+          "label": "Payments and finance"
+        },
+        {
+          "id": "landscape-delivery",
+          "label": "Fulfillment and delivery"
+        },
+        {
+          "id": "landscape-communication",
+          "label": "Customer communication"
+        },
+        {
+          "id": "landscape-events-group",
+          "label": "Event transport"
+        },
+        {
+          "id": "landscape-insight",
+          "label": "Operations and analytics"
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "id": "showcase-intro",
+      "type": "prose",
+      "markdown": "Explore a **fictional Order platform** through its responsibilities, runtime behavior, domain types, validation rules and stored data. These examples are illustrative, not findings from a production repository."
+    },
+    {
+      "id": "section-system",
+      "type": "heading",
+      "level": 2,
+      "text": "System overview"
+    },
+    {
+      "id": "system-context",
+      "type": "prose",
+      "markdown": "The Order API reserves stock, authorizes payment and commits an order with an outbox event. Fulfillment continues asynchronously. Groups distinguish people, owned services, durable data and external providers."
+    },
+    {
+      "id": "show-system",
+      "type": "diagram",
+      "diagramId": "orders-system-overview"
+    },
+    {
+      "id": "section-sequence",
+      "type": "heading",
+      "level": 2,
+      "text": "Request sequence"
+    },
+    {
+      "id": "sequence-context",
+      "type": "prose",
+      "markdown": "This explicit 14-message happy path adds the execution order that a static dependency map cannot supply. Phase captions organize the story. The accepted response follows the database commit; background delivery may happen later."
+    },
+    {
+      "id": "show-sequence",
+      "type": "diagram",
+      "diagramId": "orders-order-sequence"
+    },
+    {
+      "id": "section-classes",
+      "type": "heading",
+      "level": 2,
+      "text": "Class model"
+    },
+    {
+      "id": "class-context",
+      "type": "prose",
+      "markdown": "Application coordination, domain rules and persistence boundaries have different responsibilities. Purpose and Invariant columns explain each member. Composition and multiplicity describe ownership; the reusable Money value object keeps amount arithmetic explicit."
+    },
+    {
+      "id": "show-classes",
+      "type": "diagram",
+      "diagramId": "orders-domain-classes"
+    },
+    {
+      "id": "section-state",
+      "type": "heading",
+      "level": 2,
+      "text": "Validation state machine"
+    },
+    {
+      "id": "state-context",
+      "type": "prose",
+      "markdown": "Save or field blur validates the current value. Once an error is visible, it clears **only when the value is correct and the field loses focus**. Typing alone or pressing Save keeps the error visible; invalid blur also leaves it unchanged."
+    },
+    {
+      "id": "show-state",
+      "type": "diagram",
+      "diagramId": "validation-validation-flow"
+    },
+    {
+      "id": "show-retry",
+      "type": "diagram",
+      "diagramId": "retry-loop"
+    },
+    {
+      "id": "section-data",
+      "type": "heading",
+      "level": 2,
+      "text": "Database and code mappings"
+    },
+    {
+      "id": "data-context",
+      "type": "prose",
+      "markdown": "Ordering owns order headers and item snapshots; Catalog owns products. Each item references **1** order and **1** product. An accepted order contains **1..n** items (an application rule); a product can appear in **0..n** items. Here **n** means many. The arrows follow **PK → FK**, while row columns map physical SQL names to code classes and properties."
+    },
+    {
+      "id": "show-data",
+      "type": "diagram",
+      "diagramId": "data-mapping"
+    },
+    {
+      "id": "section-dense",
+      "type": "heading",
+      "level": 2,
+      "text": "Explore a dense system"
+    },
+    {
+      "id": "dense-context",
+      "type": "prose",
+      "markdown": "This deliberately larger fictional landscape contains **40 entities and 44 selected relations**. It demonstrates grouped navigation rather than a recommended service decomposition. Use Overview for orientation, then Read, search or zoom for a useful local view."
+    },
+    {
+      "id": "show-dense",
+      "type": "diagram",
+      "diagramId": "landscape-dense-overview"
+    },
+    {
+      "id": "showcase-save-note",
+      "type": "callout",
+      "title": "Keep the changes you make",
+      "text": "Save HTML downloads a complete editable copy. Share that latest copy for another AI revision. Localhost synchronization is optional; this exported document remains usable offline.",
+      "tone": "info"
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "inputs": {
+    "src/model.mjs": {
+      "bytes": 14914,
+      "imports": [],
+      "format": "esm"
+    },
+    "node_modules/elkjs/lib/elk.bundled.js": {
+      "bytes": 1606238,
+      "imports": [
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "cjs"
+    },
+    "src/diagrams.js": {
+      "bytes": 99910,
+      "imports": [
+        {
+          "path": "node_modules/elkjs/lib/elk.bundled.js",
+          "kind": "import-statement",
+          "original": "elkjs/lib/elk.bundled.js"
+        }
+      ],
+      "format": "esm"
+    },
+    "node_modules/marked/lib/marked.esm.js": {
+      "bytes": 40163,
+      "imports": [],
+      "format": "esm"
+    },
+    "node_modules/dompurify/dist/purify.es.mjs": {
+      "bytes": 84443,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/richtext.js": {
+      "bytes": 4965,
+      "imports": [
+        {
+          "path": "node_modules/marked/lib/marked.esm.js",
+          "kind": "import-statement",
+          "original": "marked"
+        },
+        {
+          "path": "node_modules/dompurify/dist/purify.es.mjs",
+          "kind": "import-statement",
+          "original": "dompurify"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/app.js": {
+      "bytes": 62687,
+      "imports": [
+        {
+          "path": "src/model.mjs",
+          "kind": "import-statement",
+          "original": "./model.mjs"
+        },
+        {
+          "path": "src/diagrams.js",
+          "kind": "import-statement",
+          "original": "./diagrams.js"
+        },
+        {
+          "path": "src/richtext.js",
+          "kind": "import-statement",
+          "original": "./richtext.js"
+        }
+      ],
+      "format": "esm"
+    }
+  },
+  "outputs": {
+    "dist/runtime.js": {
+      "imports": [],
+      "exports": [],
+      "entryPoint": "src/app.js",
+      "inputs": {
+        "node_modules/elkjs/lib/elk.bundled.js": {
+          "bytesInOutput": 1460475
+        },
+        "src/model.mjs": {
+          "bytesInOutput": 9904
+        },
+        "src/diagrams.js": {
+          "bytesInOutput": 60200
+        },
+        "node_modules/marked/lib/marked.esm.js": {
+          "bytesInOutput": 40285
+        },
+        "node_modules/dompurify/dist/purify.es.mjs": {
+          "bytesInOutput": 31262
+        },
+        "src/richtext.js": {
+          "bytesInOutput": 3608
+        },
+        "src/app.js": {
+          "bytesInOutput": 45455
+        }
+      },
+      "bytes": 1652006
+    }
+  }
+}

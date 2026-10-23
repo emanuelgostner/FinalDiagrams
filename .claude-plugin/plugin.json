@@ -1,0 +1,9 @@
+{
+  "name": "finaldiagrams",
+  "version": "0.4.1",
+  "description": "Create editable offline diagram documents and evidence-based monorepo onboarding guides.",
+  "agents": [
+    "./host-config/claude/agents/module-scanner.md",
+    "./host-config/claude/agents/database-scanner.md"
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "FinalDiagrams"
+  short_description: "Editable documents with interactive software diagrams"
+  default_prompt: "Use $finaldiagrams to create a complete technical document with interactive diagrams as one editable offline HTML file."

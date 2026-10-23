@@ -1,0 +1,4 @@
+interface:
+  display_name: "Monorepo Onboarding"
+  short_description: "Module maps and database-to-code onboarding guides"
+  default_prompt: "Use $monorepo-onboarding to create a concise architecture overview and grouped database guide for this repository as one editable offline HTML."

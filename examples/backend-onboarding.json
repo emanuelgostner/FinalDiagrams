@@ -1,0 +1,787 @@
+{
+  "schemaVersion": 1,
+  "id": "fictional-order-onboarding",
+  "title": "Your first day on the Order platform",
+  "subtitle": "Checkout, fulfillment and the order domain — a fictional backend",
+  "revision": 0,
+  "entities": [
+    {
+      "id": "shopper",
+      "kind": "actor",
+      "name": "Shopper",
+      "summary": "Places an order and follows its progress.",
+      "group": "users",
+      "description": "A person using the sample storefront. The API accepts only the authenticated shopper identity, never an arbitrary customer ID from a request body."
+    },
+    {
+      "id": "operator",
+      "kind": "actor",
+      "name": "Support operator",
+      "summary": "Investigates order status with a read-only console.",
+      "group": "users",
+      "description": "Uses the same API boundary with a support role. Refund and cancellation workflows are deliberately outside this introductory example."
+    },
+    {
+      "id": "storefront",
+      "kind": "service",
+      "name": "Storefront",
+      "summary": "Collects a basket and presents order status.",
+      "group": "services",
+      "technology": "Web client",
+      "description": "Sends a unique request key when the shopper confirms a basket. A retry reuses that key so an uncertain network outcome does not create a second order."
+    },
+    {
+      "id": "gateway",
+      "kind": "service",
+      "name": "API gateway",
+      "summary": "Authenticates requests and forwards order commands.",
+      "group": "services",
+      "technology": "HTTP / JSON",
+      "description": "Checks the bearer token, applies rate limits, attaches a correlation ID, and routes to the Order API. Domain rules remain in the service."
+    },
+    {
+      "id": "order-api",
+      "kind": "service",
+      "name": "Order API",
+      "summary": "Owns order acceptance and the transactional outbox.",
+      "group": "services",
+      "technology": "TypeScript",
+      "description": "Coordinates pricing, stock reservation and payment authorization. It commits the order and the pending OrderAccepted event in one database transaction. A declined authorization returns a failure and releases the reservation; that alternative is described in prose, not encoded as a second path in the sequence."
+    },
+    {
+      "id": "inventory",
+      "kind": "service",
+      "name": "Inventory service",
+      "summary": "Reserves sellable stock for a short window.",
+      "group": "services",
+      "technology": "HTTP service",
+      "description": "A reservation is temporary until fulfillment confirms it. In this fictional design, reservation IDs make retries idempotent and expiry compensates for abandoned checkouts."
+    },
+    {
+      "id": "fulfillment",
+      "kind": "service",
+      "name": "Fulfillment worker",
+      "summary": "Consumes accepted orders and schedules packing.",
+      "group": "services",
+      "technology": "Background worker",
+      "description": "Consumes messages at least once, records handled event IDs, and sends a confirmation email. Acknowledges the message only after its durable work succeeds."
+    },
+    {
+      "id": "orders-db",
+      "kind": "database",
+      "name": "Orders database",
+      "summary": "Stores orders, request keys and pending events.",
+      "group": "data",
+      "technology": "PostgreSQL",
+      "description": "The Order API owns writes. The outbox relay is a loop inside the same service process in this small example; a production deployment could split it into a separate worker."
+    },
+    {
+      "id": "events",
+      "kind": "queue",
+      "name": "Order event queue",
+      "summary": "Buffers accepted-order notifications.",
+      "group": "data",
+      "technology": "Message broker",
+      "description": "Delivery is at least once. Event IDs support deduplication; the queue does not promise exactly-once effects across the database, fulfillment system and email provider."
+    },
+    {
+      "id": "payments",
+      "kind": "external",
+      "name": "Payment provider",
+      "summary": "Authorizes the final amount with an idempotency key.",
+      "group": "external",
+      "technology": "External API",
+      "description": "A successful authorization reserves funds; it is not a completed capture. Timeouts need reconciliation before the API decides whether to retry, fail or compensate."
+    },
+    {
+      "id": "email",
+      "kind": "external",
+      "name": "Email provider",
+      "summary": "Delivers the shopper confirmation.",
+      "group": "external",
+      "technology": "External API",
+      "description": "A delivery failure is retried by the background workflow. It must not reverse an already accepted order."
+    },
+    {
+      "id": "order",
+      "kind": "class",
+      "name": "Order",
+      "summary": "Aggregate root that protects accepted order invariants.",
+      "group": "domain",
+      "description": "A fictional teaching model. Status transitions are methods so callers cannot silently skip validation.",
+      "fields": [
+        {
+          "id": "order-id",
+          "name": "id",
+          "type": "OrderId",
+          "purpose": "Stable identity across API, events and support.",
+          "visibility": "public",
+          "details": "Generated once; opaque outside the order boundary.",
+          "values": {
+            "invariant": "Immutable"
+          }
+        },
+        {
+          "id": "order-lines",
+          "name": "lines",
+          "type": "OrderLine[]",
+          "purpose": "Snapshot of purchased items and agreed prices.",
+          "visibility": "public",
+          "details": "A later catalog change does not rewrite the accepted order.",
+          "values": {
+            "invariant": "At least one line"
+          }
+        },
+        {
+          "id": "order-status",
+          "name": "status",
+          "type": "OrderStatus",
+          "purpose": "Records the current lifecycle stage.",
+          "visibility": "private",
+          "details": "Changes through accept() and markPacking(), not direct assignment.",
+          "values": {
+            "invariant": "Transition checked"
+          }
+        }
+      ],
+      "methods": [
+        {
+          "id": "accept",
+          "name": "accept()",
+          "type": "OrderAccepted",
+          "purpose": "Checks totals and moves the order into Accepted.",
+          "visibility": "public",
+          "details": "Requires reservation and successful authorization.",
+          "values": {
+            "invariant": "Only from Pending"
+          }
+        },
+        {
+          "id": "mark-packing",
+          "name": "markPacking()",
+          "type": "void",
+          "purpose": "Moves an accepted order into packing.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Only from Accepted"
+          }
+        }
+      ]
+    },
+    {
+      "id": "order-line",
+      "kind": "class",
+      "name": "OrderLine",
+      "summary": "Immutable purchase snapshot for one product.",
+      "group": "domain",
+      "fields": [
+        {
+          "id": "line-sku",
+          "name": "sku",
+          "type": "string",
+          "purpose": "Connects a line to the reserved product.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Nonempty"
+          }
+        },
+        {
+          "id": "line-quantity",
+          "name": "quantity",
+          "type": "integer",
+          "purpose": "Number of units promised to the shopper.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Greater than zero"
+          }
+        },
+        {
+          "id": "line-price",
+          "name": "unitPrice",
+          "type": "Money",
+          "purpose": "Price agreed at checkout.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Nonnegative"
+          }
+        }
+      ],
+      "methods": [
+        {
+          "id": "subtotal",
+          "name": "subtotal()",
+          "type": "Money",
+          "purpose": "Computes quantity times the agreed price.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Same currency"
+          }
+        }
+      ]
+    },
+    {
+      "id": "money",
+      "kind": "class",
+      "name": "Money",
+      "summary": "Value object for amounts and currency.",
+      "group": "domain",
+      "fields": [
+        {
+          "id": "money-minor",
+          "name": "minorUnits",
+          "type": "integer",
+          "purpose": "Stores cents or another currency minor unit.",
+          "visibility": "public",
+          "details": "No floating-point amount arithmetic.",
+          "values": {
+            "invariant": "Integer"
+          }
+        },
+        {
+          "id": "money-currency",
+          "name": "currency",
+          "type": "string",
+          "purpose": "Identifies the currency used for arithmetic.",
+          "visibility": "public",
+          "values": {
+            "invariant": "ISO-style code"
+          }
+        }
+      ],
+      "methods": [
+        {
+          "id": "money-add",
+          "name": "add(other)",
+          "type": "Money",
+          "purpose": "Adds amounts after checking their currencies.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Equal currency"
+          }
+        },
+        {
+          "id": "money-times",
+          "name": "multiply(quantity)",
+          "type": "Money",
+          "purpose": "Scales the amount by a whole item count.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Integer quantity"
+          }
+        }
+      ]
+    },
+    {
+      "id": "order-service",
+      "kind": "class",
+      "name": "PlaceOrderService",
+      "summary": "Application coordinator for a checkout request.",
+      "group": "application",
+      "fields": [
+        {
+          "id": "service-repository",
+          "name": "orders",
+          "type": "OrderRepository",
+          "purpose": "Loads existing request keys and commits orders.",
+          "visibility": "private",
+          "values": {
+            "invariant": "Injected dependency"
+          }
+        }
+      ],
+      "methods": [
+        {
+          "id": "place",
+          "name": "place(command)",
+          "type": "OrderResult",
+          "purpose": "Coordinates reservation, authorization and persistence.",
+          "visibility": "public",
+          "details": "Idempotent lookup happens before a fresh attempt starts.",
+          "values": {
+            "invariant": "One result per request key"
+          }
+        }
+      ]
+    },
+    {
+      "id": "order-repository",
+      "kind": "interface",
+      "name": "OrderRepository",
+      "summary": "Persistence boundary used by the application service.",
+      "group": "application",
+      "methods": [
+        {
+          "id": "find-request",
+          "name": "findByRequestKey(key)",
+          "type": "Order | null",
+          "purpose": "Returns a prior result for a retried request.",
+          "visibility": "public",
+          "values": {
+            "invariant": "Unique request key"
+          }
+        },
+        {
+          "id": "save-event",
+          "name": "saveWithEvent(order, event)",
+          "type": "void",
+          "purpose": "Atomically persists an order and its pending event.",
+          "visibility": "public",
+          "details": "The adapter uses one database transaction.",
+          "values": {
+            "invariant": "All or nothing"
+          }
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "id": "shopper-storefront",
+      "source": "shopper",
+      "target": "storefront",
+      "label": "checks out",
+      "kind": "calls"
+    },
+    {
+      "id": "operator-gateway",
+      "source": "operator",
+      "target": "gateway",
+      "label": "looks up orders",
+      "kind": "calls"
+    },
+    {
+      "id": "storefront-gateway",
+      "source": "storefront",
+      "target": "gateway",
+      "label": "POST /orders",
+      "kind": "calls"
+    },
+    {
+      "id": "gateway-orders",
+      "source": "gateway",
+      "target": "order-api",
+      "label": "authenticated command",
+      "kind": "calls"
+    },
+    {
+      "id": "orders-inventory",
+      "source": "order-api",
+      "target": "inventory",
+      "label": "reserves stock",
+      "kind": "calls"
+    },
+    {
+      "id": "orders-payment",
+      "source": "order-api",
+      "target": "payments",
+      "label": "authorizes funds",
+      "kind": "calls"
+    },
+    {
+      "id": "orders-storage",
+      "source": "order-api",
+      "target": "orders-db",
+      "label": "order + outbox",
+      "kind": "writes"
+    },
+    {
+      "id": "orders-events",
+      "source": "order-api",
+      "target": "events",
+      "label": "relays OrderAccepted",
+      "kind": "async"
+    },
+    {
+      "id": "events-fulfillment",
+      "source": "events",
+      "target": "fulfillment",
+      "label": "delivers event",
+      "kind": "async"
+    },
+    {
+      "id": "fulfillment-email",
+      "source": "fulfillment",
+      "target": "email",
+      "label": "sends confirmation",
+      "kind": "calls"
+    },
+    {
+      "id": "order-lines-rel",
+      "source": "order",
+      "target": "order-line",
+      "label": "contains",
+      "kind": "composition",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "1..*",
+      "sourceMember": "order-lines",
+      "description": "An order owns its immutable line snapshots."
+    },
+    {
+      "id": "line-money",
+      "source": "order-line",
+      "target": "money",
+      "label": "agreed price",
+      "kind": "composition",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "1",
+      "sourceMember": "line-price"
+    },
+    {
+      "id": "service-order",
+      "source": "order-service",
+      "target": "order",
+      "label": "creates and accepts",
+      "kind": "dependency"
+    },
+    {
+      "id": "service-repository",
+      "source": "order-service",
+      "target": "order-repository",
+      "label": "uses",
+      "kind": "dependency",
+      "sourceMember": "service-repository"
+    },
+    {
+      "id": "repository-order",
+      "source": "order-repository",
+      "target": "order",
+      "label": "loads and stores",
+      "kind": "association"
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "system-overview",
+      "type": "system",
+      "title": "From checkout to fulfillment",
+      "description": "People, owned services, durable data and external providers. The Order API owns the checkout boundary.",
+      "entityIds": [
+        "shopper",
+        "operator",
+        "storefront",
+        "gateway",
+        "order-api",
+        "inventory",
+        "fulfillment",
+        "orders-db",
+        "events",
+        "payments",
+        "email"
+      ],
+      "relationIds": [
+        "shopper-storefront",
+        "operator-gateway",
+        "storefront-gateway",
+        "gateway-orders",
+        "orders-inventory",
+        "orders-payment",
+        "orders-storage",
+        "orders-events",
+        "events-fulfillment",
+        "fulfillment-email"
+      ],
+      "direction": "RIGHT",
+      "notation": "plain",
+      "groups": [
+        {
+          "id": "users",
+          "label": "People"
+        },
+        {
+          "id": "services",
+          "label": "Owned services"
+        },
+        {
+          "id": "data",
+          "label": "Durable data"
+        },
+        {
+          "id": "external",
+          "label": "External providers"
+        }
+      ]
+    },
+    {
+      "id": "order-sequence",
+      "type": "sequence",
+      "title": "One successful order, step by step",
+      "description": "The successful checkout path. Fulfillment continues asynchronously after the response.",
+      "entityIds": [
+        "shopper",
+        "storefront",
+        "gateway",
+        "order-api",
+        "orders-db",
+        "inventory",
+        "payments",
+        "events",
+        "fulfillment"
+      ],
+      "messages": [
+        {
+          "id": "m01",
+          "from": "shopper",
+          "to": "storefront",
+          "label": "Confirm basket",
+          "kind": "sync",
+          "phase": "Validate and reserve",
+          "description": "The client keeps the same request key across retries."
+        },
+        {
+          "id": "m02",
+          "from": "storefront",
+          "to": "gateway",
+          "label": "POST /orders + request key",
+          "kind": "sync",
+          "phase": "Validate and reserve",
+          "description": "Payload contains SKU and quantity; the service determines trusted prices."
+        },
+        {
+          "id": "m03",
+          "from": "gateway",
+          "to": "order-api",
+          "label": "Forward authenticated command",
+          "kind": "sync",
+          "phase": "Validate and reserve",
+          "description": "Token checks and the correlation ID are applied at the edge."
+        },
+        {
+          "id": "m04",
+          "from": "order-api",
+          "to": "orders-db",
+          "label": "Find prior result by request key",
+          "kind": "sync",
+          "phase": "Validate and reserve",
+          "description": "This happy path has no previous result. A replay returns the existing order."
+        },
+        {
+          "id": "m05",
+          "from": "orders-db",
+          "to": "order-api",
+          "label": "No existing order",
+          "kind": "return",
+          "phase": "Validate and reserve",
+          "description": "A unique database constraint also protects concurrent attempts."
+        },
+        {
+          "id": "m06",
+          "from": "order-api",
+          "to": "inventory",
+          "label": "Reserve requested units",
+          "kind": "sync",
+          "phase": "Validate and reserve",
+          "description": "Reserve against a short expiry with an idempotent reservation key."
+        },
+        {
+          "id": "m07",
+          "from": "inventory",
+          "to": "order-api",
+          "label": "Reservation confirmed",
+          "kind": "return",
+          "phase": "Validate and reserve",
+          "description": "The example assumes all requested items are available."
+        },
+        {
+          "id": "m08",
+          "from": "order-api",
+          "to": "payments",
+          "label": "Authorize amount + request key",
+          "kind": "sync",
+          "phase": "Authorize and commit",
+          "description": "Authorization reserves funds; later capture is outside this walkthrough."
+        },
+        {
+          "id": "m09",
+          "from": "payments",
+          "to": "order-api",
+          "label": "Authorization approved",
+          "kind": "return",
+          "phase": "Authorize and commit",
+          "description": "A timeout requires reconciliation because the external effect may have happened."
+        },
+        {
+          "id": "m10",
+          "from": "order-api",
+          "to": "orders-db",
+          "label": "Commit order + outbox event",
+          "kind": "sync",
+          "phase": "Authorize and commit",
+          "description": "One transaction makes the order and pending event durable together."
+        },
+        {
+          "id": "m11",
+          "from": "orders-db",
+          "to": "order-api",
+          "label": "Transaction committed",
+          "kind": "return",
+          "phase": "Authorize and commit",
+          "description": "The accepted response can now refer to a durable order."
+        },
+        {
+          "id": "m12",
+          "from": "order-api",
+          "to": "gateway",
+          "label": "201 Created + order ID",
+          "kind": "return",
+          "phase": "Respond and hand off",
+          "description": "The gateway forwards the response to the storefront; two trivial forwarding arrows are omitted for space."
+        },
+        {
+          "id": "m13",
+          "from": "order-api",
+          "to": "events",
+          "label": "Relay OrderAccepted from outbox",
+          "kind": "async",
+          "phase": "Respond and hand off",
+          "description": "The service relay may publish more than once after a crash. Consumers deduplicate by event ID."
+        },
+        {
+          "id": "m14",
+          "from": "events",
+          "to": "fulfillment",
+          "label": "Deliver OrderAccepted",
+          "kind": "async",
+          "phase": "Respond and hand off",
+          "description": "Fulfillment records the event ID, schedules packing and sends the email shown in the overview."
+        }
+      ],
+      "notation": "uml"
+    },
+    {
+      "id": "domain-classes",
+      "type": "class",
+      "title": "Small domain model with visible intent",
+      "description": "Application orchestration, domain rules and persistence responsibilities, with each member’s purpose and invariants.",
+      "entityIds": [
+        "order",
+        "order-line",
+        "money",
+        "order-service",
+        "order-repository"
+      ],
+      "relationIds": [
+        "order-lines-rel",
+        "line-money",
+        "service-order",
+        "service-repository",
+        "repository-order"
+      ],
+      "direction": "DOWN",
+      "notation": "uml",
+      "columns": [
+        {
+          "key": "name",
+          "label": "Member"
+        },
+        {
+          "key": "type",
+          "label": "Type / result"
+        },
+        {
+          "key": "purpose",
+          "label": "Purpose"
+        },
+        {
+          "key": "invariant",
+          "label": "Invariant"
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "id": "welcome-copy",
+      "type": "prose",
+      "markdown": "Start with the checkout boundary, follow an accepted order through fulfillment, then inspect the domain rules. **This system is fictional:** its services and code are illustrative, not findings from a repository."
+    },
+    {
+      "id": "architecture-heading",
+      "type": "heading",
+      "level": 2,
+      "text": "A compact map of the system"
+    },
+    {
+      "id": "architecture-copy",
+      "type": "prose",
+      "markdown": "The Order API owns the order record. It asks Inventory for a temporary reservation and the Payment provider for an authorization, then stores the accepted order with a pending event. A background relay publishes that event so Fulfillment can schedule packing without extending the checkout request.\n\nThe overview is a responsibility map. An arrow expresses a dependency or interaction, while the numbered sequence below records the order of a particular execution."
+    },
+    {
+      "id": "overview-embed",
+      "type": "diagram",
+      "diagramId": "system-overview"
+    },
+    {
+      "id": "request-heading",
+      "type": "heading",
+      "level": 2,
+      "text": "Follow one request"
+    },
+    {
+      "id": "request-copy",
+      "type": "prose",
+      "markdown": "A shopper confirms a basket with a request key. The gateway authenticates it, and the Order API first checks whether that key already produced a result. A fresh request reserves stock and authorizes the amount. Only after the order and outbox transaction commits does checkout report success.\n\nThe relay and Fulfillment continue asynchronously. The shopper can receive a successful response before packing or email completes. That boundary is intentional: delivery work must be retryable without charging the shopper again."
+    },
+    {
+      "id": "sequence-embed",
+      "type": "diagram",
+      "diagramId": "order-sequence"
+    },
+    {
+      "id": "retry-caveat",
+      "type": "callout",
+      "title": "What this happy path leaves out",
+      "text": "Out-of-stock and declined-payment branches are omitted. An authorization timeout is an unknown outcome, not a guaranteed failure. Reservations need expiry or compensation; duplicate events need idempotent consumers. The outbox does not create an atomic transaction across external services.",
+      "tone": "warning"
+    },
+    {
+      "id": "model-heading",
+      "type": "heading",
+      "level": 2,
+      "text": "Read the model by responsibility"
+    },
+    {
+      "id": "model-copy",
+      "type": "prose",
+      "markdown": "PlaceOrderService coordinates the use case, Order protects lifecycle rules, and OrderLine preserves the accepted purchase snapshot. Money keeps arithmetic explicit. OrderRepository is the persistence boundary, so the application can express one atomic order-and-event write without knowing SQL.\n\nThese names intentionally differ from the deployment boxes above: a class is a code-level responsibility, not a promise that it runs in its own process."
+    },
+    {
+      "id": "classes-embed",
+      "type": "diagram",
+      "diagramId": "domain-classes"
+    },
+    {
+      "id": "code-heading",
+      "type": "heading",
+      "level": 3,
+      "text": "A small fictional command boundary"
+    },
+    {
+      "id": "example-code",
+      "type": "code",
+      "language": "typescript",
+      "text": "type PlaceOrder = {\n  requestKey: string;\n  shopperId: string; // supplied by trusted authentication context\n  lines: Array<{ sku: string; quantity: number }>;\n};\n\n// Illustrative pseudocode: error handling and reconciliation omitted.\nasync function placeOrder(command: PlaceOrder): Promise<Order> {\n  const prior = await orders.findByRequestKey(command.requestKey);\n  if (prior) return prior;\n  const reservation = await inventory.reserve(command);\n  const authorization = await payments.authorize(command, reservation);\n  const order = Order.accept(command, reservation, authorization);\n  await orders.saveWithEvent(order, order.acceptedEvent());\n  return order;\n}"
+    },
+    {
+      "id": "operations-heading",
+      "type": "heading",
+      "level": 2,
+      "text": "Keep three questions nearby"
+    },
+    {
+      "id": "operations-copy",
+      "type": "prose",
+      "markdown": "- **Did the command already succeed?** Look up the request key before repeating an external effect.\n- **Where did progress stop?** Follow the correlation ID through the request and the event ID through background work.\n- **Can the next attempt repeat safely?** Inspect reservation, payment and consumer idempotency separately; one safeguard does not cover all three.\n\nThe snippet is a conversation starter, not a production checkout implementation. Pricing authority, access checks, payment reconciliation, stock compensation, event retention and privacy rules all need a real design before deployment."
+    },
+    {
+      "id": "first-task-heading",
+      "type": "heading",
+      "level": 2,
+      "text": "Your first small task"
+    },
+    {
+      "id": "first-task-copy",
+      "type": "prose",
+      "markdown": "Add a `deliveryNote` field to Order for packing instructions supplied by the shopper. Define who may read it, its length limit and retention period. Check how it reaches Fulfillment and whether the OrderAccepted event needs to carry it."
+    }
+  ]
+}

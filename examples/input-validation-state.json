@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "id": "input-validation",
+  "title": "Input validation",
+  "revision": 0,
+  "entities": [
+    {
+      "id": "regular-input",
+      "kind": "state",
+      "name": "Regular input",
+      "summary": "No validation error is shown.",
+      "description": "The field can contain missing or invalid input until Save or field blur triggers validation. Regular describes the visible state, not a guarantee that the current value is valid.",
+      "tone": "neutral"
+    },
+    {
+      "id": "validity-choice",
+      "kind": "choice",
+      "name": "Input valid?",
+      "summary": "Check the current value when validation is triggered.",
+      "description": "Evaluate the value and retain which event triggered this check. A valid value returns to Regular input. Missing or invalid input enters the error state associated with Save or field blur.",
+      "tone": "info"
+    },
+    {
+      "id": "save-error",
+      "kind": "state",
+      "name": "Error after Save",
+      "summary": "Save found missing or invalid input.",
+      "description": "Keep the error visible while the user types, even when the value becomes valid. Save does not clear this error. Only field blur with a valid value returns to Regular input; blur with an invalid value leaves the error unchanged.",
+      "tone": "error"
+    },
+    {
+      "id": "blur-error",
+      "kind": "state",
+      "name": "Error after blur",
+      "summary": "Field blur found missing or invalid input.",
+      "description": "Keep the error visible while the user types, even when the value becomes valid. Save does not clear this error. Only field blur with a valid value returns to Regular input; blur with an invalid value leaves the error unchanged.",
+      "tone": "error"
+    }
+  ],
+  "relations": [
+    {
+      "id": "validate-input",
+      "source": "regular-input",
+      "target": "validity-choice",
+      "kind": "transition",
+      "label": "Save or field blur",
+      "description": "Run validation only when an action such as Save occurs or the field loses focus.",
+      "tone": "neutral"
+    },
+    {
+      "id": "valid-input",
+      "source": "validity-choice",
+      "target": "regular-input",
+      "kind": "transition",
+      "label": "[valid]",
+      "description": "When no error is visible and validation succeeds, remain in the regular visible state.",
+      "tone": "neutral"
+    },
+    {
+      "id": "invalid-on-save",
+      "source": "validity-choice",
+      "target": "save-error",
+      "kind": "transition",
+      "label": "[invalid] Save",
+      "description": "This check was triggered by Save and the input is missing or invalid.",
+      "tone": "error"
+    },
+    {
+      "id": "invalid-on-blur",
+      "source": "validity-choice",
+      "target": "blur-error",
+      "kind": "transition",
+      "label": "[invalid] Field blur",
+      "description": "This check was triggered by losing field focus and the input is missing or invalid.",
+      "tone": "error"
+    },
+    {
+      "id": "clear-save-error",
+      "source": "save-error",
+      "target": "regular-input",
+      "kind": "transition",
+      "label": "Field blur [input valid]",
+      "description": "Clear the existing error only after the input is correct and the field loses focus. Typing alone or pressing Save does not take this transition.",
+      "tone": "success"
+    },
+    {
+      "id": "clear-blur-error",
+      "source": "blur-error",
+      "target": "regular-input",
+      "kind": "transition",
+      "label": "Field blur [input valid]",
+      "description": "Clear the existing error only after the input is correct and the field loses focus. Typing alone or pressing Save does not take this transition.",
+      "tone": "success"
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "validation-flow",
+      "type": "state",
+      "title": "Validation flow",
+      "entityIds": ["regular-input", "validity-choice", "save-error", "blur-error"],
+      "relationIds": ["validate-input", "valid-input", "invalid-on-save", "invalid-on-blur", "clear-save-error", "clear-blur-error"],
+      "direction": "DOWN",
+      "notation": "uml"
+    }
+  ],
+  "blocks": [
+    {
+      "id": "validation-rule",
+      "type": "prose",
+      "markdown": "Save or field blur validates the current value. Missing or invalid input shows an error. Once an error is visible, it clears **only when the input is correct and the field loses focus**. Typing alone or pressing Save does not clear it; blur with invalid input keeps it visible."
+    },
+    {
+      "id": "validation-diagram",
+      "type": "diagram",
+      "diagramId": "validation-flow"
+    }
+  ]
+}

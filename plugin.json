@@ -1,0 +1,7 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "finaldiagrams",
+  "version": "0.4.1",
+  "description": "Create editable offline technical documents and evidence-backed monorepo onboarding guides with shared interactive diagrams.",
+  "keywords": ["diagrams", "architecture", "documents", "onboarding", "monorepo", "offline", "editable"]
+}
