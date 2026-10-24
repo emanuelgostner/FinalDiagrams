@@ -1777,7 +1777,7 @@
       "id": "landscape-dense-overview",
       "type": "system",
       "title": "A larger commerce landscape",
-      "description": "40 entities in eight boundaries. The initial view favors readable local detail; Overview fits the complete map. Search, zoom and selection reveal responsibilities without changing the shared model.",
+      "description": "40 entities in eight boundaries. The initial Overview fits the complete map; Read shows local detail. Search, zoom and selection reveal responsibilities without changing the shared model.",
       "entityIds": [
         "landscape-web",
         "landscape-mobile",

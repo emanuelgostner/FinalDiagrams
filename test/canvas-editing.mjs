@@ -36,7 +36,7 @@ async function ready(target,diagramID){await target.waitForFunction(id=>[...docu
 async function center(locator){await locator.waitFor({state:'visible'});const box=await locator.boundingBox();assert.ok(box,'Interactive geometry is visible.');return {x:box.x+box.width/2,y:box.y+box.height/2};}
 async function nodeCenter(target,id){const body=node(target,id).locator('.fd-node-body').first();return center(await body.count()?body:node(target,id));}
 async function clickNodeHeader(target,id){const body=node(target,id).locator('.fd-node-body').first(),box=await (await body.count()?body:node(target,id)).boundingBox();assert.ok(box);await target.mouse.click(box.x+Math.min(70,box.width*.4),box.y+18);}
-async function beginConnection(target,id){await node(target,id).hover();const handle=target.locator(`[data-connect-from="${id}"][data-side="right"]`);assert.equal(await handle.evaluate(element=>element.localName==='circle'||!!element.querySelector('circle')),true,'Connection handles expose a circular hit target on the node boundary.');const start=await center(handle);await target.mouse.move(start.x,start.y);await target.mouse.down();return start;}
+async function beginConnection(target,id){await node(target,id).hover();const handle=target.locator(`[data-connect-from="${id}"][data-side="right"]:not([data-source-member])`);assert.equal(await handle.evaluate(element=>element.localName==='circle'||!!element.querySelector('circle')),true,'Connection handles expose a circular hit target on the node boundary.');const start=await center(handle);await target.mouse.move(start.x,start.y);await target.mouse.down();return start;}
 async function dragTo(target,start,end){await target.mouse.move(start.x,start.y);await target.mouse.down();await target.mouse.move(end.x,end.y,{steps:16});await target.mouse.up();}
 async function connect(target,from,to){const end=await nodeCenter(target,to);await beginConnection(target,from);await target.mouse.move(end.x,end.y,{steps:16});await target.mouse.up();}
 async function showEndpoint(target,id,endpoint,kind='relation'){
@@ -104,7 +104,7 @@ try{
   await reconnect(page,created.id,'source','gateway');await expectRelation(page,created.id,'gateway','storefront');await closeInspector(page);
 
   const beforeCancel=await model(page),canvasBox=await page.locator('.diagram-canvas').boundingBox();
-  const empty={x:canvasBox.x+canvasBox.width-28,y:canvasBox.y+canvasBox.height-28};
+  const empty={x:canvasBox.x+20,y:canvasBox.y+canvasBox.height-28};
   await beginConnection(page,'shopper');await page.mouse.move(empty.x,empty.y,{steps:12});await page.mouse.up();
   assert.deepEqual(await model(page),beforeCancel,'Dropping a new arrow on empty canvas does not change the source.');
   await beginConnection(page,'shopper');await page.mouse.move(empty.x,empty.y,{steps:12});
@@ -168,6 +168,20 @@ try{
   await dragTo(page,participant,{x:lastParticipant.x+60,y:participant.y});
   await page.waitForFunction(()=>window.FinalDiagrams.getProject().diagrams[0].entityIds.at(-1)==='shopper');
   assert.deepEqual((await model(page)).diagrams[0].messages,beforeReorder.diagrams[0].messages,'Participant reordering preserves message endpoints and order.');
+  await closeInspector(page);
+  await page.getByRole('button',{name:'Overview Canvas messages',exact:true}).click();
+  // Sequence group moves reorder lanes atomically while preserving ordered messages.
+  const laneA=await node(page,'storefront').boundingBox(),laneB=await node(page,'gateway').boundingBox();
+  await dragTo(page,{x:laneA.x-8,y:laneA.y-8},{x:laneB.x+laneB.width+8,y:laneB.y+laneB.height+8});
+  assert.equal(await page.locator('[data-entity-id][data-selected="true"]').count(),2);
+  await closeInspector(page);
+  const beforeGroup=await model(page),groupStart=await nodeCenter(page,'storefront'),groupTarget=await nodeCenter(page,'shopper');
+  await dragTo(page,groupStart,{x:groupTarget.x+45,y:groupStart.y});await ready(page);
+  assert.deepEqual((await model(page)).diagrams[0].entityIds,['shopper','storefront','gateway']);
+  assert.deepEqual((await model(page)).diagrams[0].messages,beforeGroup.diagrams[0].messages);
+  await page.locator('#undo').click();await ready(page);
+  assert.deepEqual(withoutRevision(await model(page)),withoutRevision(beforeGroup),'One undo restores the group lane order.');
+  await closeInspector(page);await node(page,'storefront').hover();
   const extraParticipant=await addNode(page,sequence.diagrams[0].id,'Extra participant');
   assert.ok((await model(page)).diagrams[0].entityIds.includes(extraParticipant.id),'The sequence toolbar adds a participant.');
   await page.getByRole('button',{name:'Done editing',exact:true}).click();await ready(page);

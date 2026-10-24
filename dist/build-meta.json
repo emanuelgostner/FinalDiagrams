@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/model.mjs": {
-      "bytes": 14914,
+      "bytes": 15105,
       "imports": [],
       "format": "esm"
     },
@@ -17,7 +17,7 @@
       "format": "cjs"
     },
     "src/diagrams.js": {
-      "bytes": 99910,
+      "bytes": 115004,
       "imports": [
         {
           "path": "node_modules/elkjs/lib/elk.bundled.js",
@@ -38,7 +38,7 @@
       "format": "esm"
     },
     "src/richtext.js": {
-      "bytes": 4965,
+      "bytes": 5038,
       "imports": [
         {
           "path": "node_modules/marked/lib/marked.esm.js",
@@ -54,7 +54,7 @@
       "format": "esm"
     },
     "src/app.js": {
-      "bytes": 62687,
+      "bytes": 89024,
       "imports": [
         {
           "path": "src/model.mjs",
@@ -82,28 +82,28 @@
       "entryPoint": "src/app.js",
       "inputs": {
         "node_modules/elkjs/lib/elk.bundled.js": {
-          "bytesInOutput": 1460475
+          "bytesInOutput": 1461068
         },
         "src/model.mjs": {
-          "bytesInOutput": 9904
+          "bytesInOutput": 9765
         },
         "src/diagrams.js": {
-          "bytesInOutput": 60200
+          "bytesInOutput": 69255
         },
         "node_modules/marked/lib/marked.esm.js": {
-          "bytesInOutput": 40285
+          "bytesInOutput": 40176
         },
         "node_modules/dompurify/dist/purify.es.mjs": {
-          "bytesInOutput": 31262
+          "bytesInOutput": 31509
         },
         "src/richtext.js": {
-          "bytesInOutput": 3608
+          "bytesInOutput": 3602
         },
         "src/app.js": {
-          "bytesInOutput": 45455
+          "bytesInOutput": 61894
         }
       },
-      "bytes": 1652006
+      "bytes": 1678086
     }
   }
 }

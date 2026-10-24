@@ -26,13 +26,27 @@ node bin/finaldiagrams.mjs update onboarding.html edited.json -o revised.html
 
 Open `onboarding.html`, edit the document or select a diagram item to edit its data, then use **Save HTML** to download a new copy. Reopen that copy to continue. The original file is not overwritten automatically, and unsaved browser changes are not durable.
 
-In **Edit document** mode, work directly on each diagram:
+Use the pencil in a diagram's toolbar to edit only that diagram, including while expanded; its checkmark ends editing. Prose and other diagrams remain in read mode. The app-bar pencil enables **Edit document** for the whole document. Shared entities and relationships still update in every view that uses them.
+
+In either editing mode, work directly on each diagram:
 
 - Drag a card to move it. In a sequence diagram, drag participant headers to reorder their lanes.
+- Left-drag empty canvas to marquee-select cards, or Shift-click headers to add/remove selections. Drag a selected card to move the group; sequence selections move together as lanes. Middle-mouse drag pans without moving nodes.
+- Delete (Entf) or Backspace removes selected nodes, connections, and sequence messages from the current diagram. Shift-click to combine nodes and connections; a selection rectangle also selects fully enclosed arrows. Shared entities, relationships and other views remain intact. **Delete everywhere** in the context menu explicitly removes shared entities and relationships throughout the document; undo can restore them.
+- Select one or more graph nodes, then choose **Group selected nodes…** in the context menu or inspector. Create a named group or join an existing one. Click its heading to edit its name and members. Membership follows shared entities; labels can differ between diagrams. Removing a group keeps its nodes and connections.
+- Drag nodes freely in any direction, including past the canvas origin. Overview and SVG export include nodes moved above or left of their original layout.
+- In Edit mode, each content block has a persistent **⠿** drag handle. Drag it to reorder a diagram, paragraph, or other block; the insertion line shows the destination. Escape cancels, and Undo restores the previous order. The up/down buttons also stay visible.
 - Hover a node to reveal circular handles; drag one onto another node to create a connection. The **Connect** button also lets you select a source and destination.
 - Hover an arrow to reveal its start/end handles, then drag either handle onto another node to reconnect it. Sequence arrows edit message participants; state arrows edit transitions.
+- Table and class rows have their own connection handles. Drop onto a highlighted row to bind to that member, or onto a header for a whole-card connection. Reconnection can switch rows within the same card.
 - Use **+ Node**, or double-click empty canvas, to add a named node or participant. Double-click a label (or focus it and press F2) to rename it.
-- Press Escape to cancel a gesture. Undo/redo and Save HTML retain changes to the shared model. The **i** button opens detailed fields in the inspector.
+- Right-click the canvas for a compact creation menu using the existing semantic types and their rendered icons/state symbols. **+ Diagram** opens a type picker and creates an empty system, class, sequence, or state view.
+- Click an item or its **i** control to open a compact property card beside it. Text properties open a separate input/textarea: click outside to save, Enter saves a single-line field, Ctrl/Cmd+Enter saves multiline text, and Escape cancels. Notation choices show the corresponding arrowhead and line style on the right. This applies to nodes, relationships, members, groups, sequence steps and diagram settings in Edit mode.
+- Press Escape to cancel a gesture. Undo/redo and Save HTML retain changes to the shared model.
+
+Editing controls float above the relevant block without changing its dimensions. Property cards prefer the space above the click and scroll within available space, keeping the clicked item clear for dragging or double-click renaming. In read mode, hover or focus an information icon to preview a card; click the icon, node, or Pin to keep it open. The same card provides full details, Copy link and Edit actions, collapsible connections and members, source links, and sequence navigation. Escape, an outside click, or × closes it. The wheel scrolls the page by default; use **Enable wheel zoom** on a diagram to zoom with the wheel, then press Escape or click outside to return to page scrolling. Button and keyboard zoom remain available.
+
+Diagrams open in Overview with the complete map fitted to a 645 px high canvas below the header. Read and search provide local detail; expanded diagrams fill the viewport and automatically enable wheel zoom, which turns off when closed.
 
 The combined [all-diagrams example](examples/all-diagrams.json) covers every diagram type, grouped database tables and a dense system overview. Run `npm run demo` to produce the single `artifacts/all-diagrams.html` preview.
 
@@ -138,6 +152,13 @@ npm run test:browser
 npm run test:state
 npm run test:database
 npm run test:canvas
+npm run test:editor
+npm run test:performance
+npm run test:bounds
+npm run test:groups
+npm run test:deletion
+npm run test:blocks
+npm run test:context
 npm run test:connected
 npm run package
 npm run test:release

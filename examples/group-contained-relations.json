@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "group-contained-relations",
+  "title": "Internal relations stay inside their group",
+  "revision": 0,
+  "entities": [
+    {"id":"library-a","kind":"library","name":"New library","group":"libraries"},
+    {"id":"library-b","kind":"library","name":"Supporting library","group":"libraries"},
+    {"id":"external","kind":"external","name":"External system"},
+    {"id":"parent-table","kind":"table","name":"orders","group":"storage","fields":[{"id":"order-id","name":"id","type":"uuid","purpose":"Primary key"}]},
+    {"id":"child-table","kind":"table","name":"order_items","group":"storage","fields":[{"id":"order-fk","name":"order_id","type":"uuid","purpose":"Foreign key"}]},
+    {"id":"state-a","kind":"state","name":"Working","group":"lifecycle"},
+    {"id":"state-b","kind":"state","name":"Retrying","group":"lifecycle"}
+  ],
+  "relations": [
+    {"id":"internal","source":"library-a","target":"library-b","kind":"dependency","label":"Uses supporting library"},
+    {"id":"outgoing","source":"library-b","target":"external","kind":"calls","label":"External call"},
+    {"id":"rows","source":"parent-table","target":"child-table","sourceMember":"order-id","targetMember":"order-fk","kind":"association","label":"Contains order items","sourceMultiplicity":"1","targetMultiplicity":"0..n"},
+    {"id":"retry","source":"state-a","target":"state-b","kind":"transition","label":"Retry"},
+    {"id":"resume","source":"state-b","target":"state-a","kind":"transition","label":"Resume"},
+    {"id":"self","source":"state-b","target":"state-b","kind":"transition","label":"Wait and retry"}
+  ],
+  "diagrams": [
+    {"id":"libraries-view","type":"system","title":"Grouped libraries","entityIds":["library-a","library-b","external"],"relationIds":["internal","outgoing"],"positions":{"library-a":{"x":100,"y":100},"library-b":{"x":100,"y":340},"external":{"x":1000,"y":340}},"groups":[{"id":"libraries","label":"Libraries"}]},
+    {"id":"tables-view","type":"class","title":"Grouped rows","entityIds":["parent-table","child-table"],"relationIds":["rows"],"positions":{"parent-table":{"x":100,"y":100},"child-table":{"x":100,"y":400}},"groups":[{"id":"storage","label":"Storage"}]},
+    {"id":"states-view","type":"state","title":"Grouped cycles","direction":"DOWN","entityIds":["state-a","state-b"],"relationIds":["retry","resume","self"],"positions":{"state-a":{"x":100,"y":100},"state-b":{"x":100,"y":350}},"groups":[{"id":"lifecycle","label":"Lifecycle"}]}
+  ],
+  "blocks": [
+    {"id":"intro","type":"heading","level":1,"text":"Internal relations stay inside their group"},
+    {"id":"notes","type":"prose","markdown":"Regression fixture for internal loops, row links and cross-group connections."},
+    {"id":"libraries-block","type":"diagram","diagramId":"libraries-view"},
+    {"id":"tables-block","type":"diagram","diagramId":"tables-view"},
+    {"id":"states-block","type":"diagram","diagramId":"states-view"}
+  ]
+}
